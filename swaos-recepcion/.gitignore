@@ -24,4 +24,4 @@ dist-ssr
 *.sw?
 
 #dbs
-/sistema/swaos-api/db.php
+**/db.php
