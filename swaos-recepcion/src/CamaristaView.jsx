@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Swal from "sweetalert2";
 
 const API_URL = "http://localhost/hotelespvpm/sistema/swaos-api";
 
@@ -19,20 +20,42 @@ const TIPOS_DANO = [
   "Otro",
 ];
 
-export default function CamaristaView() {
-  const [camaristaId, setCamaristaId] = useState(1);
+// Recibimos al usuario logueado en las propiedades
+export default function CamaristaView({ usuarioActual }) {
   const [data, setData] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [subiendoFoto, setSubiendoFoto] = useState(null);
-
-  // Estados para el Modal de Reporte de Daños
-  const [modalDano, setModalDano] = useState(null); // Guarda el ID de la habitación
+  const [modalDano, setModalDano] = useState(null);
   const [tipoDano, setTipoDano] = useState(TIPOS_DANO[0]);
   const [descDano, setDescDano] = useState("");
   const [fotoDano, setFotoDano] = useState(null);
   const [enviandoReporte, setEnviandoReporte] = useState(false);
 
+  // ==========================================
+  // MOTOR DE ALERTAS FLOTANTES (TOASTS)
+  // ==========================================
+  const alertaToast = (icon, title) => {
+    const esOscuro = document.documentElement.classList.contains("dark");
+    Swal.fire({
+      toast: true,
+      position: "top-end",
+      icon: icon,
+      title: title,
+      showConfirmButton: false,
+      timer: 2500,
+      timerProgressBar: true,
+      background: esOscuro ? "#1e293b" : "#ffffff",
+      color: esOscuro ? "#f8fafc" : "#0f172a",
+      customClass: {
+        popup:
+          "border border-slate-200 dark:border-slate-700 shadow-xl rounded-2xl text-xs font-bold",
+      },
+    });
+  };
+
+  // Cargamos estrictamente las tareas del ID autenticado
   const cargarTareas = (id) => {
+    if (!id) return;
     setCargando(true);
     fetch(`${API_URL}/obtener_tareas_camarista.php?usuario_id=${id}`)
       .then((res) => res.json())
@@ -47,8 +70,10 @@ export default function CamaristaView() {
   };
 
   useEffect(() => {
-    cargarTareas(camaristaId);
-  }, [camaristaId]);
+    if (usuarioActual?.id) {
+      cargarTareas(usuarioActual.id);
+    }
+  }, [usuarioActual]);
 
   const handleCambioEstatus = (habitacionId, nuevoEstatus) => {
     const nuevasHabitaciones = data.habitaciones.map((hab) => {
@@ -98,7 +123,6 @@ export default function CamaristaView() {
           canvas.height = height;
           const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, width, height);
-
           canvas.toBlob((blob) => resolve(blob), "image/webp", 0.75);
         };
       };
@@ -108,7 +132,6 @@ export default function CamaristaView() {
   const handleTomarFoto = async (e, habitacionId) => {
     const file = e.target.files[0];
     if (!file) return;
-
     setSubiendoFoto(habitacionId);
 
     try {
@@ -116,37 +139,45 @@ export default function CamaristaView() {
       const formData = new FormData();
       formData.append("foto", blobComprimido, `evidencia_${habitacionId}.webp`);
       formData.append("habitacion_id", habitacionId);
-      formData.append("usuario_id", camaristaId);
+      formData.append("usuario_id", usuarioActual.id); // Usamos ID real de sesión
 
       const res = await fetch(`${API_URL}/guardar_evidencia.php`, {
         method: "POST",
         body: formData,
       });
       const respuesta = await res.json();
-
-      if (respuesta.success) alert(`✅ Evidencia guardada en servidor.`);
-      else alert(`❌ Error al guardar: ${respuesta.message}`);
+      if (respuesta.success)
+        alertaToast("success", "✅ Evidencia guardada en servidor.");
+      else alertaToast("error", `❌ Error: ${respuesta.message}`);
     } catch (error) {
-      alert("❌ Ocurrió un error al procesar la imagen.");
+      alertaToast("error", "❌ Error de red o al procesar la imagen del daño.");
     } finally {
       setSubiendoFoto(null);
       e.target.value = "";
     }
   };
 
-  // Función para enviar el reporte de daño al backend
 const enviarReporteDano = async () => {
   if (!modalDano) return;
+
+  // 🔒 VALIDACIÓN DE TEXTO VACÍO: Evita reportes en blanco o de puros espacios
+  if (!descDano || descDano.trim() === "") {
+    alertaToast(
+      "error",
+      "⚠️ Por favor describe cuál es la falla antes de enviar.",
+    );
+    return;
+  }
+
   setEnviandoReporte(true);
 
   try {
     const formData = new FormData();
     formData.append("habitacion_id", modalDano);
-    formData.append("usuario_id", camaristaId);
+    formData.append("usuario_id", usuarioActual.id); // Usamos ID real de sesión
     formData.append("tipo_dano", tipoDano);
     formData.append("descripcion", descDano);
 
-    // Si seleccionaron foto, la comprimimos a WebP antes de enviarla
     if (fotoDano) {
       const blobComprimido = await comprimirImagen(fotoDano);
       formData.append("foto", blobComprimido, `dano_${modalDano}.webp`);
@@ -159,25 +190,26 @@ const enviarReporteDano = async () => {
     const respuesta = await res.json();
 
     if (respuesta.success) {
-      alert("⚠️ Reporte y evidencia enviados a mantenimiento exitosamente.");
+      alertaToast("success", "⚠️ Falla reportada a Mantenimiento");
       setModalDano(null);
       setTipoDano(TIPOS_DANO[0]);
       setDescDano("");
-      setFotoDano(null); // Limpiamos la foto
+      setFotoDano(null);
     } else {
-      alert("❌ Error: " + respuesta.message);
+      alertaToast("error", "❌ Error" + respuesta.message);
     }
   } catch (err) {
-    console.error("Error al reportar:", err);
-    alert("❌ Error de red o al procesar la imagen del daño.");
+    alertaToast("error", "❌ Error de red o al procesar la imagen del daño.");
   } finally {
     setEnviandoReporte(false);
   }
 };
 
+  if (!usuarioActual) return null;
+
   return (
     <div className="bg-slate-900 min-h-screen font-sans pb-16 relative">
-      {/* Barra superior */}
+      {/* CABECERA LIMPIA (Sin simulador, muestra el nombre y turno real) */}
       <div className="bg-slate-800 text-white p-4 sticky top-0 z-20 shadow-md border-b border-slate-700">
         <div className="max-w-md mx-auto flex justify-between items-center">
           <div>
@@ -186,22 +218,32 @@ const enviarReporteDano = async () => {
             </h1>
             <p className="text-xs text-slate-400">Jornada 9:00 AM - 5:00 PM</p>
           </div>
-          <select
-            value={camaristaId}
-            onChange={(e) => setCamaristaId(e.target.value)}
-            className="bg-slate-700 text-white text-xs font-bold py-1.5 px-2 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="1">👤 Raquel (ID 1)</option>
-            <option value="2">👤 María (ID 2)</option>
-            <option value="3">👤 Carmen (ID 3)</option>
-          </select>
+
+          <div className="bg-slate-700/80 border border-slate-600 px-3 py-1.5 rounded-lg text-right">
+            <span className="block text-xs font-black text-indigo-300 uppercase tracking-wider">
+              Turno Activo
+            </span>
+            <span className="text-xs font-bold text-white">
+              👤 {usuarioActual.nombre} {usuarioActual.primer_apellido}
+            </span>
+          </div>
         </div>
       </div>
 
       <div className="max-w-md mx-auto p-4 mt-2">
         {cargando && (
           <div className="text-center py-12 text-slate-400 font-bold animate-pulse">
-            Cargando habitaciones...
+            Cargando habitaciones asignadas...
+          </div>
+        )}
+
+        {!cargando && data && data.sin_asignacion && (
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center mt-6 shadow-lg">
+            <div className="text-4xl mb-3">☕</div>
+            <h2 className="text-white font-bold text-lg mb-1">
+              Sin Zona Asignada
+            </h2>
+            <p className="text-slate-400 text-sm">{data.mensaje}</p>
           </div>
         )}
 
@@ -276,7 +318,6 @@ const enviarReporteDano = async () => {
                         </div>
                       )}
 
-                      {/* Botón de Cámara */}
                       <input
                         type="file"
                         id={`camara-${hab.id}`}
@@ -296,7 +337,6 @@ const enviarReporteDano = async () => {
                         {estaSubiendo ? "⏳" : "📸"}
                       </button>
 
-                      {/* NUEVO BOTÓN: Reportar Daño */}
                       {!esLimpia && (
                         <button
                           onClick={() => setModalDano(hab.id)}
@@ -325,26 +365,6 @@ const enviarReporteDano = async () => {
 
             <div className="mb-4">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                <input
-                  type="file"
-                  id="foto-dano-input"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) => setFotoDano(e.target.files[0])}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    document.getElementById("foto-dano-input").click()
-                  }
-                  className={`w-full border border-dashed font-semibold p-2.5 rounded-lg text-xs flex items-center justify-center gap-2 transition-colors ${fotoDano ? "bg-red-50 border-red-400 text-red-700" : "bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700"}`}
-                >
-                  <span>📸</span>{" "}
-                  {fotoDano
-                    ? `Foto lista: ${fotoDano.name.substring(0, 18)}...`
-                    : "Tomar / Adjuntar foto del daño"}
-                </button>
                 ¿Qué está fallando?
               </label>
               <select
@@ -360,6 +380,32 @@ const enviarReporteDano = async () => {
               </select>
             </div>
 
+            <div className="mb-4">
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                Evidencia Fotográfica (Opcional)
+              </label>
+              <input
+                type="file"
+                id="foto-dano-input"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => setFotoDano(e.target.files[0])}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  document.getElementById("foto-dano-input").click()
+                }
+                className={`w-full border border-dashed font-semibold p-2.5 rounded-lg text-xs flex items-center justify-center gap-2 transition-colors ${fotoDano ? "bg-red-50 border-red-400 text-red-700" : "bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700"}`}
+              >
+                <span>📸</span>{" "}
+                {fotoDano
+                  ? `Foto lista: ${fotoDano.name.substring(0, 18)}...`
+                  : "Tomar / Adjuntar foto del daño"}
+              </button>
+            </div>
+
             <div className="mb-6">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                 Detalles (Opcional)
@@ -368,13 +414,16 @@ const enviarReporteDano = async () => {
                 value={descDano}
                 onChange={(e) => setDescDano(e.target.value)}
                 placeholder="Ej. La llave del lavabo está goteando..."
-                className="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-lg p-2.5 focus:ring-2 focus:ring-red-400 focus:outline-none h-24 resize-none"
+                className="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-lg p-2.5 focus:ring-2 focus:ring-red-400 focus:outline-none h-20 resize-none"
               ></textarea>
             </div>
 
             <div className="flex gap-3">
               <button
-                onClick={() => setModalDano(null)}
+                onClick={() => {
+                  setModalDano(null);
+                  setFotoDano(null);
+                }}
                 className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 rounded-xl transition-colors"
               >
                 Cancelar

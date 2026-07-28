@@ -1,61 +1,76 @@
 <?php
-// obtener_tablero.php
+// swaos-api/obtener_tablero.php
+ini_set('display_errors', 0);
+error_reporting(0);
+header('Content-Type: application/json; charset=utf-8');
 require 'db.php';
 
-// 1. Obtener todas las zonas activas del hotel
-$stmtZonas = $pdo->query("SELECT id, nombre FROM zonas WHERE hotel_id = 1 AND estatus = 'Activo'");
-$zonas = $stmtZonas->fetchAll();
+try {
+  $hotel_id = isset($_GET['hotel_id']) ? intval($_GET['hotel_id']) : 1;
 
-// 2. Obtener todas las habitaciones del hotel
-$stmtHabitaciones = $pdo->query("SELECT id, numero, estatus_operativo, zona_actual_id FROM habitaciones WHERE hotel_id = 1");
-$habitaciones = $stmtHabitaciones->fetchAll();
+  // 1. Obtener lista de hoteles con alias para los botones y selectores
+  $hoteles_lista = $pdo->query("SELECT id, nombre, COALESCE(alias, nombre) as alias FROM hoteles WHERE COALESCE(estatus, 'Activo') != 'Inactivo' ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
 
-// 3. Obtener todas las camaristas activas del hotel (Para llenar el menú <select>)
-$stmtCamaristas = $pdo->query("SELECT id, nombre FROM usuarios WHERE rol = 'Camarista' AND estatus = 'Activo'");
-$camaristas = $stmtCamaristas->fetchAll();
+  // 2. Obtener Zonas del hotel actual
+  $stmtZonas = $pdo->prepare("SELECT id, nombre, camarista_id FROM zonas WHERE hotel_id = ? AND COALESCE(estatus, 'Activo') != 'Inactivo' ORDER BY id ASC");
+  $stmtZonas->execute([$hotel_id]);
+  $zonas_db = $stmtZonas->fetchAll(PDO::FETCH_ASSOC);
 
-// 4. Obtener las asignaciones del DÍA DE HOY
-$stmtAsignaciones = $pdo->query("SELECT zona_id, usuario_id FROM asignaciones_diarias WHERE fecha = CURDATE()");
-$asignacionesHoy = $stmtAsignaciones->fetchAll(PDO::FETCH_KEY_PAIR); // Devuelve array: [zona_id => usuario_id]
+  // 3. Obtener Habitaciones del hotel actual
+  $stmtHabs = $pdo->prepare("SELECT id, numero, tipo, zona_actual_id, estatus_operativo FROM habitaciones WHERE hotel_id = ? ORDER BY numero ASC");
+  $stmtHabs->execute([$hotel_id]);
+  $habs_db = $stmtHabs->fetchAll(PDO::FETCH_ASSOC);
 
-$response = [
-  'columnas' => [],
-  'habitaciones' => [],
-  'ordenColumnas' => [],
-  'camaristas' => $camaristas // Enviamos el catálogo al frontend
-];
+  // 4. Obtener Camaristas (de todos los hoteles para permitir préstamos entre sedes)
+  $stmtCam = $pdo->query("SELECT id, nombre, primer_apellido, segundo_apellido, hotel_base_id FROM usuarios WHERE rol = 'Camarista' AND COALESCE(estatus, 'Activo') != 'Inactivo' ORDER BY nombre ASC");
+  $camaristas = $stmtCam->fetchAll(PDO::FETCH_ASSOC);
 
-// Estructurar Zonas (Columnas) con su camarista asignada
-foreach ($zonas as $zona) {
-  $zonaStrId = 'zona-' . $zona['id'];
-  $camaristaAsignadaId = isset($asignacionesHoy[$zona['id']]) ? $asignacionesHoy[$zona['id']] : null;
+  $columnas = [];
+  $ordenColumnas = [];
+  $habitaciones = [];
 
-  $response['columnas'][$zonaStrId] = [
-    'id' => $zonaStrId,
-    'zona_db_id' => $zona['id'],
-    'titulo' => $zona['nombre'],
-    'camarista_id' => $camaristaAsignadaId,
-    'habitacionIds' => []
-  ];
-  $response['ordenColumnas'][] = $zonaStrId;
-}
-
-// Estructurar Habitaciones
-foreach ($habitaciones as $hab) {
-  $habStrId = 'h' . $hab['id'];
-  $response['habitaciones'][$habStrId] = [
-    'id' => $habStrId,
-    'numero' => $hab['numero'],
-    'estatus' => $hab['estatus_operativo']
-  ];
-
-  if ($hab['zona_actual_id']) {
-    $zonaAsignada = 'zona-' . $hab['zona_actual_id'];
-    if (isset($response['columnas'][$zonaAsignada])) {
-      $response['columnas'][$zonaAsignada]['habitacionIds'][] = $habStrId;
-    }
+  // Mapear habitaciones
+  foreach ($habs_db as $h) {
+    $id_str = "hab-" . $h['id'];
+    $habitaciones[$id_str] = [
+      'id' => $id_str,
+      'id_real' => $h['id'],
+      'numero' => $h['numero'],
+      'tipo' => $h['tipo'],
+      'estatus' => $h['estatus_operativo'] ?: 'Limpia',
+      'zona_id' => $h['zona_actual_id']
+    ];
   }
-}
 
-header('Content-Type: application/json');
-echo json_encode($response);
+  // Mapear zonas en columnas para el tablero
+  foreach ($zonas_db as $z) {
+    $col_id = "col-" . $z['id'];
+    $ordenColumnas[] = $col_id;
+
+    $habs_en_zona = [];
+    foreach ($habitaciones as $hab_id => $hab_data) {
+      if (intval($hab_data['zona_id']) === intval($z['id'])) {
+        $habs_en_zona[] = $hab_id;
+      }
+    }
+
+    $columnas[$col_id] = [
+      'id' => $col_id,
+      'id_real' => $z['id'],
+      'titulo' => $z['nombre'],
+      'camarista_id' => $z['camarista_id'],
+      'habitacionIds' => $habs_en_zona
+    ];
+  }
+
+  echo json_encode([
+    'success' => true,
+    'hoteles_lista' => $hoteles_lista,
+    'columnas' => $columnas,
+    'ordenColumnas' => $ordenColumnas,
+    'habitaciones' => $habitaciones,
+    'camaristas' => $camaristas
+  ]);
+} catch (Exception $e) {
+  echo json_encode(['error' => $e->getMessage()]);
+}

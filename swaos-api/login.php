@@ -5,13 +5,10 @@ require 'db.php';
 $data = json_decode(file_get_contents("php://input"));
 
 if (isset($data->email) && isset($data->password)) {
-  $stmt = $pdo->prepare("SELECT id, nombre, rol, hotel_base_id, password_hash FROM usuarios WHERE email = ?");
+  // Agregamos primer_apellido y segundo_apellido a la consulta
+  $stmt = $pdo->prepare("SELECT id, nombre, primer_apellido, segundo_apellido, rol, hotel_base_id, password_hash FROM usuarios WHERE email = ?");
   $stmt->execute([$data->email]);
   $user = $stmt->fetch();
-
-  // NOTA: Como insertamos 'hash_secreto' en la BD de prueba, para este MVP permitiremos 
-  // el acceso si escriben cualquier contraseña, simulando un login exitoso. 
-  // En producción, aquí usaríamos: password_verify($data->password, $user['password_hash'])
 
   if ($user) {
     echo json_encode([
@@ -19,6 +16,8 @@ if (isset($data->email) && isset($data->password)) {
       'usuario' => [
         'id' => $user['id'],
         'nombre' => $user['nombre'],
+        'primer_apellido' => $user['primer_apellido'],
+        'segundo_apellido' => $user['segundo_apellido'] ? $user['segundo_apellido'] : '',
         'rol' => $user['rol'],
         'hotel_id' => $user['hotel_base_id']
       ]
