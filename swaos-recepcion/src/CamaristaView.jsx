@@ -53,27 +53,45 @@ export default function CamaristaView({ usuarioActual }) {
     });
   };
 
-  // Cargamos estrictamente las tareas del ID autenticado
-  const cargarTareas = (id) => {
+  // Cargamos estrictamente las tareas del ID autenticado (soporta modo silencioso para tiempo real)
+  const cargarTareas = (id, silencioso = false) => {
     if (!id) return;
-    setCargando(true);
+
+    // Solo mostramos la pantalla de carga si NO es una actualización en segundo plano
+    if (!silencioso) {
+      setCargando(true);
+    }
+
     fetch(`${API_URL}/obtener_tareas_camarista.php?usuario_id=${id}`)
       .then((res) => res.json())
       .then((fetchedData) => {
         setData(fetchedData);
-        setCargando(false);
+        if (!silencioso) {
+          setCargando(false);
+        }
       })
       .catch((err) => {
         console.error("Error cargando tareas:", err);
-        setCargando(false);
+        if (!silencioso) {
+          setCargando(false);
+        }
       });
   };
 
-  useEffect(() => {
-    if (usuarioActual?.id) {
-      cargarTareas(usuarioActual.id);
-    }
-  }, [usuarioActual]);
+useEffect(() => {
+  if (usuarioActual?.id) {
+    // 1. Primera carga: muestra el spinner normalmente
+    cargarTareas(usuarioActual.id, false);
+
+    // 2. Sincronización automática en vivo (cada 7 segundos y en silencio)
+    const intervalo = setInterval(() => {
+      cargarTareas(usuarioActual.id, true);
+    }, 7000);
+
+    // 3. Limpieza: apaga el temporizador si sale de la vista
+    return () => clearInterval(intervalo);
+  }
+}, [usuarioActual]);
 
   const handleCambioEstatus = (habitacionId, nuevoEstatus) => {
     const nuevasHabitaciones = data.habitaciones.map((hab) => {
@@ -157,53 +175,53 @@ export default function CamaristaView({ usuarioActual }) {
     }
   };
 
-const enviarReporteDano = async () => {
-  if (!modalDano) return;
+  const enviarReporteDano = async () => {
+    if (!modalDano) return;
 
-  // 🔒 VALIDACIÓN DE TEXTO VACÍO: Evita reportes en blanco o de puros espacios
-  if (!descDano || descDano.trim() === "") {
-    alertaToast(
-      "error",
-      "⚠️ Por favor describe cuál es la falla antes de enviar.",
-    );
-    return;
-  }
-
-  setEnviandoReporte(true);
-
-  try {
-    const formData = new FormData();
-    formData.append("habitacion_id", modalDano);
-    formData.append("usuario_id", usuarioActual.id); // Usamos ID real de sesión
-    formData.append("tipo_dano", tipoDano);
-    formData.append("descripcion", descDano);
-
-    if (fotoDano) {
-      const blobComprimido = await comprimirImagen(fotoDano);
-      formData.append("foto", blobComprimido, `dano_${modalDano}.webp`);
+    // 🔒 VALIDACIÓN DE TEXTO VACÍO: Evita reportes en blanco o de puros espacios
+    if (!descDano || descDano.trim() === "") {
+      alertaToast(
+        "error",
+        "⚠️ Por favor describe cuál es la falla antes de enviar.",
+      );
+      return;
     }
 
-    const res = await fetch(`${API_URL}/reportar_dano.php`, {
-      method: "POST",
-      body: formData,
-    });
-    const respuesta = await res.json();
+    setEnviandoReporte(true);
 
-    if (respuesta.success) {
-      alertaToast("success", "⚠️ Falla reportada a Mantenimiento");
-      setModalDano(null);
-      setTipoDano(TIPOS_DANO[0]);
-      setDescDano("");
-      setFotoDano(null);
-    } else {
-      alertaToast("error", "❌ Error" + respuesta.message);
+    try {
+      const formData = new FormData();
+      formData.append("habitacion_id", modalDano);
+      formData.append("usuario_id", usuarioActual.id); // Usamos ID real de sesión
+      formData.append("tipo_dano", tipoDano);
+      formData.append("descripcion", descDano);
+
+      if (fotoDano) {
+        const blobComprimido = await comprimirImagen(fotoDano);
+        formData.append("foto", blobComprimido, `dano_${modalDano}.webp`);
+      }
+
+      const res = await fetch(`${API_URL}/reportar_dano.php`, {
+        method: "POST",
+        body: formData,
+      });
+      const respuesta = await res.json();
+
+      if (respuesta.success) {
+        alertaToast("success", "⚠️ Falla reportada a Mantenimiento");
+        setModalDano(null);
+        setTipoDano(TIPOS_DANO[0]);
+        setDescDano("");
+        setFotoDano(null);
+      } else {
+        alertaToast("error", "❌ Error" + respuesta.message);
+      }
+    } catch (err) {
+      alertaToast("error", "❌ Error de red o al procesar la imagen del daño.");
+    } finally {
+      setEnviandoReporte(false);
     }
-  } catch (err) {
-    alertaToast("error", "❌ Error de red o al procesar la imagen del daño.");
-  } finally {
-    setEnviandoReporte(false);
-  }
-};
+  };
 
   if (!usuarioActual) return null;
 
