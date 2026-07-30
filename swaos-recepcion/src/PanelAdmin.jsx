@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 
 const API_URL = "http://localhost/hotelespvpm/sistema/swaos-api";
@@ -59,6 +59,9 @@ export default function PanelAdmin({ usuarioActual }) {
   const [modalHab, setModalHab] = useState(false);
 
   // CAMPOS FORMULARIO EMPLEADO
+  // 1. Creamos la referencia para el primer input (autofocus)
+  const primerInputRef = useRef(null);
+
   const [edicionId, setEdicionId] = useState(0);
   const [nombre, setNombre] = useState("");
   const [primerApellido, setPrimerApellido] = useState("");
@@ -131,9 +134,20 @@ export default function PanelAdmin({ usuarioActual }) {
       });
   };
 
+  // 1. EFECTO PARA CARGAR DATOS
   useEffect(() => {
     cargarTodo();
   }, [usuarioActual]);
+
+  // 2. EFECTO EXCLUSIVO PARA EL AUTOFOCUS DE CUALQUIER MODAL
+  useEffect(() => {
+    // Usamos el operador || (OR) para verificar si AL MENOS UNO está abierto
+    if (modalFormulario || modalTipo || modalZona || modalHab || modalHotel) {
+      setTimeout(() => {
+        primerInputRef.current?.focus();
+      }, 100);
+    }
+  }, [modalFormulario, modalTipo, modalZona, modalHab, modalHotel]);
 
   // ==========================================
   // FUNCIONES PARA PERSONAL
@@ -687,7 +701,7 @@ export default function PanelAdmin({ usuarioActual }) {
                 }}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm shadow-sm transition-colors flex items-center gap-2"
               >
-                <span>➕</span> Crear Nuevo Tipo
+                <span>➕</span> Crear categoría
               </button>
             </div>
             <div className="overflow-x-auto">
@@ -970,14 +984,15 @@ export default function PanelAdmin({ usuarioActual }) {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Nombre
+                    Nombre(s)
                   </label>
                   <input
                     type="text"
                     required
+                    ref={primerInputRef}
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
-                    placeholder="Ej. Paola"
+                    placeholder="Ej. María"
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-indigo-400 focus:outline-none"
                   />
                 </div>
@@ -1019,6 +1034,7 @@ export default function PanelAdmin({ usuarioActual }) {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="empleado@hotel.com"
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+                    autoComplete="nope"
                   />
                 </div>
                 <div>
@@ -1036,6 +1052,7 @@ export default function PanelAdmin({ usuarioActual }) {
                     }
                     required={edicionId === 0}
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+                    autoComplete="new-password"
                   />
                 </div>
               </div>
@@ -1142,6 +1159,7 @@ export default function PanelAdmin({ usuarioActual }) {
                 <input
                   type="text"
                   required
+                  ref={primerInputRef}
                   value={nombreHotel}
                   onChange={(e) => setNombreHotel(e.target.value)}
                   placeholder="Ej. Hotel Playa Victoria"
@@ -1237,6 +1255,7 @@ export default function PanelAdmin({ usuarioActual }) {
                 <input
                   type="text"
                   required
+                  ref={primerInputRef}
                   value={nombreTipo}
                   onChange={(e) => setNombreTipo(e.target.value)}
                   placeholder="Ej. Villa Frente al Mar, Penthouse..."
@@ -1321,6 +1340,7 @@ export default function PanelAdmin({ usuarioActual }) {
                 <input
                   type="text"
                   required
+                  ref={primerInputRef}
                   value={nombreZona}
                   onChange={(e) => setNombreZona(e.target.value)}
                   placeholder="Ej. Zona 6 (Piso 14)"
@@ -1406,6 +1426,7 @@ export default function PanelAdmin({ usuarioActual }) {
                   <input
                     type="text"
                     required
+                    ref={primerInputRef}
                     value={numHab}
                     onChange={(e) => setNumHab(e.target.value)}
                     placeholder="Ej. 1401"

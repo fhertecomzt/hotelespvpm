@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react";
 import BitacoraView from "./BitacoraView";
 
 const API_URL = "http://localhost/hotelespvpm/sistema/swaos-api";
@@ -8,24 +8,24 @@ export default function DashboardView({ usuarioActual }) {
   const [cargando, setCargando] = useState(true);
   const [hotelActivo, setHotelActivo] = useState(usuarioActual?.hotel_id || 1);
   const [pestañaSaaS, setPestañaSaaS] = useState(false);
-  
+
   const esSuperusuario = usuarioActual?.rol === "Superusuario";
-  
+
   const cargarMetrics = (silencioso = false) => {
     if (!silencioso) setCargando(true);
     const idConsulta = pestañaSaaS ? 0 : hotelActivo;
     fetch(
       `${API_URL}/obtener_dashboard.php?hotel_id=${idConsulta}&rol=${usuarioActual?.rol || ""}`,
     )
-    .then((res) => res.json())
-    .then((res) => {
-      if (res.success) setData(res);
-      if (!silencioso) setCargando(false);
-    })
-    .catch((err) => {
-      console.error("Error al cargar dashboard:", err);
-      if (!silencioso) setCargando(false);
-    });
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success) setData(res);
+        if (!silencioso) setCargando(false);
+      })
+      .catch((err) => {
+        console.error("Error al cargar dashboard:", err);
+        if (!silencioso) setCargando(false);
+      });
   };
   const [pestañaGerencial, setPestañaGerencial] = useState("metricas"); // 'metricas' o 'auditoria'
 
@@ -58,12 +58,15 @@ export default function DashboardView({ usuarioActual }) {
   return (
     <div className="bg-slate-100 dark:bg-slate-900 min-h-screen font-sans text-slate-800 dark:text-slate-100 p-4 md:p-8 pb-20 transition-colors duration-300">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* CABECERA GERENCIAL DINÁMICA */}
+        {/* ========================================================= */}
+        {/* CABECERA GERENCIAL DINÁMICA UNIFICADA */}
+        {/* ========================================================= */}
         <div className="bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 p-6 rounded-3xl shadow-lg flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 transition-colors">
+          {/* LADO IZQUIERDO: TÍTULO Y DESCRIPCIÓN */}
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tracking-wide">
-                📊 Inteligencia Operativa{" "}
+              <h1 className="text-2xl md:text-2xl font-black text-slate-800 dark:text-white tracking-wide">
+                📊  Operación{" "}
                 {pestañaSaaS && (
                   <span className="text-sm bg-purple-600 text-white px-3 py-1 rounded-full uppercase tracking-widest font-black">
                     SaaS Global
@@ -81,12 +84,43 @@ export default function DashboardView({ usuarioActual }) {
             <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm font-semibold mt-1">
               {pestañaSaaS
                 ? "Monitoreo multi-tenant y licencias de la plataforma"
-                : `Resumen ejecutivo en tiempo real para ${textoHotelHeader}`}
+                : `Resumen en tiempo real para ${textoHotelHeader}`}
             </p>
           </div>
 
+          {/* LADO DERECHO: CONTROLES Y PESTAÑAS */}
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            {/* SELECTOR DINÁMICO DE HOTELES: SOLO SE MUESTRA EN MÉTRICAS */}
+            {/* 1. PESTAÑAS (Integradas y enlazadas para salir del SaaS si es necesario) */}
+            <div className="flex gap-1 bg-slate-200 dark:bg-slate-700/60 p-1 rounded-2xl w-fit">
+              <button
+                onClick={() => {
+                  setPestañaGerencial("metricas");
+                  setPestañaSaaS(false);
+                }}
+                className={`px-4 py-2 rounded-xl font-bold text-xs transition-all ${
+                  !pestañaSaaS && pestañaGerencial === "metricas"
+                    ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-md"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                📈 Métricas y KPIs
+              </button>
+              <button
+                onClick={() => {
+                  setPestañaGerencial("auditoria");
+                  setPestañaSaaS(false);
+                }}
+                className={`px-4 py-2 rounded-xl font-bold text-xs transition-all ${
+                  !pestañaSaaS && pestañaGerencial === "auditoria"
+                    ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-md"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                📑 Auditoría de Tiempos
+              </button>
+            </div>
+
+            {/* 2. SELECTOR DINÁMICO DE HOTELES */}
             {!pestañaSaaS && pestañaGerencial === "metricas" && (
               <div className="bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl border border-slate-300 dark:border-slate-700 flex flex-wrap gap-1">
                 {hoteles_lista.map((h) => (
@@ -101,7 +135,7 @@ export default function DashboardView({ usuarioActual }) {
               </div>
             )}
 
-            {/* BOTÓN EXCEL: SOLO SE MUESTRA EN MÉTRICAS */}
+            {/* 3. BOTÓN EXCEL */}
             {!pestañaSaaS && pestañaGerencial === "metricas" && (
               <button
                 onClick={descargarExcel}
@@ -111,7 +145,7 @@ export default function DashboardView({ usuarioActual }) {
               </button>
             )}
 
-            {/* BOTÓN SUPERUSUARIO: SIEMPRE VISIBLE PARA EL DUEÑO */}
+            {/* 4. BOTÓN SUPERUSUARIO */}
             {esSuperusuario && (
               <button
                 onClick={() => setPestañaSaaS(!pestañaSaaS)}
@@ -124,42 +158,20 @@ export default function DashboardView({ usuarioActual }) {
           </div>
         </div>
 
-        {/* SELECTOR DE PESTAÑAS GERENCIALES */}
-        <div className="flex gap-2 bg-slate-200 dark:bg-slate-700/60 p-1 rounded-2xl w-fit my-2">
-          <button
-            onClick={() => setPestañaGerencial("metricas")}
-            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all ${
-              pestañaGerencial === "metricas"
-                ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-md"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-            }`}
-          >
-            📈 Métricas y KPIs
-          </button>
-          <button
-            onClick={() => setPestañaGerencial("auditoria")}
-            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all ${
-              pestañaGerencial === "auditoria"
-                ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-md"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-            }`}
-          >
-            📑 Auditoría de Tiempos
-          </button>
-        </div>
+        {/* ========================================================= */}
+        {/* CONTENEDOR DINÁMICO: 3 VISTAS TOTALMENTE INDEPENDIENTES */}
+        {/* ========================================================= */}
 
-        {/* CONTENIDO DINÁMICO SEGÚN PESTAÑA */}
-        {pestañaGerencial === "auditoria" ? (
-          <BitacoraView usuarioActual={usuarioActual} />
-        ) : (
-          <div className="space-y-6">
-            {/* ... tus tarjetas, gráficas y tablas anteriores ... */}
+        {/* VISTA 1: AUDITORÍA DE TIEMPOS */}
+        {!pestañaSaaS && pestañaGerencial === "auditoria" && (
+          <div className="animate-fadeIn">
+            <BitacoraView usuarioActual={usuarioActual} />
           </div>
         )}
 
-        {/* CONTENIDO KPI Y GRÁFICAS */}
-        {!pestañaSaaS && (
-          <>
+        {/* VISTA 2: MÉTRICAS Y GRÁFICAS (KPIs) */}
+        {!pestañaSaaS && pestañaGerencial === "metricas" && (
+          <div className="space-y-6 animate-fadeIn">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 p-5 rounded-3xl shadow-sm transition-all">
                 <div className="flex justify-between items-start mb-2">
@@ -356,10 +368,10 @@ export default function DashboardView({ usuarioActual }) {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
 
-        {/* VISTA SAAS MULTI-TENANT */}
+        {/* VISTA 3: VISTA SAAS MULTI-TENANT */}
         {pestañaSaaS && esSuperusuario && (
           <div className="space-y-6 animate-fadeIn">
             <div className="bg-gradient-to-r from-purple-100 via-white to-indigo-100 dark:from-purple-900/60 dark:via-slate-800 dark:to-indigo-900/60 border border-purple-300 dark:border-purple-500/40 p-6 rounded-3xl shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4 transition-colors">
