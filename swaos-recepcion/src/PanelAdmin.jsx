@@ -51,6 +51,17 @@ export default function PanelAdmin({ usuarioActual }) {
   const [habitaciones, setHabitaciones] = useState([]);
   const [cargando, setCargando] = useState(true);
 
+  // ESTADOS DE PAGINACIÓN
+  const [paginaActual, setPaginaActual] = useState(1);
+  const itemsPorPagina = 8;
+
+  const getItemsPaginados = (lista) => {
+    const indiceUltimoItem = paginaActual * itemsPorPagina;
+    const indicePrimerItem = indiceUltimoItem - itemsPorPagina;
+    return lista.slice(indicePrimerItem, indiceUltimoItem);
+  };
+  const totalPaginas = (lista) => Math.ceil(lista.length / itemsPorPagina);
+
   // ESTADOS PARA MODALES FORMULARIOS
   const [modalFormulario, setModalFormulario] = useState(false);
   const [modalHotel, setModalHotel] = useState(false);
@@ -106,6 +117,57 @@ export default function PanelAdmin({ usuarioActual }) {
     const h = hoteles.find((item) => Number(item.id) === Number(id));
     if (!h) return `🏨 Hotel ID ${id}`;
     return `🏨 ${h.alias || h.nombre}`;
+  };
+
+  // ==========================================
+  // 2. AQUÍ DEBE ESTAR LA FUNCIÓN RENDERPAGINACION
+  // ==========================================
+  const RenderPaginacion = ({ lista }) => {
+    const paginas = totalPaginas(lista);
+    if (paginas <= 1) return null;
+
+    return (
+      <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-100 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 gap-4">
+        <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
+          Mostrando del {paginaActual * itemsPorPagina - itemsPorPagina + 1} al{" "}
+          {Math.min(paginaActual * itemsPorPagina, lista.length)} de{" "}
+          {lista.length} registros
+        </span>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
+            disabled={paginaActual === 1}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 disabled:opacity-30 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+          >
+            Anterior
+          </button>
+
+          <div className="flex items-center gap-1 hidden sm:flex">
+            {[...Array(paginas)].map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setPaginaActual(i + 1)}
+                className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${
+                  paginaActual === i + 1
+                    ? "bg-indigo-600 text-white shadow-md border-indigo-600"
+                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setPaginaActual((p) => Math.min(paginas, p + 1))}
+            disabled={paginaActual === paginas}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 disabled:opacity-30 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
+    );
   };
 
   const cargarTodo = () => {
@@ -426,33 +488,48 @@ export default function PanelAdmin({ usuarioActual }) {
 
           <div className="bg-slate-100 dark:bg-slate-900 p-1 rounded-xl flex flex-wrap gap-1 w-full md:w-auto transition-colors">
             <button
-              onClick={() => setPestaña("personal")}
+              onClick={() => {
+                setPestaña("personal");
+                setPaginaActual(1);
+              }}
               className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "personal" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
             >
               <span>👥</span> Personal y Roles
             </button>
             {esSuperusuario && (
               <button
-                onClick={() => setPestaña("hoteles")}
+                onClick={() => {
+                  setPestaña("hoteles");
+                  setPaginaActual(1);
+                }}
                 className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "hoteles" ? "bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
               >
                 <span>🏢</span> Hoteles (SaaS)
               </button>
             )}
             <button
-              onClick={() => setPestaña("tipos")}
+              onClick={() => {
+                setPestaña("tipos");
+                setPaginaActual(1);
+              }}
               className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "tipos" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
             >
               <span>🛏️</span> Tipos de Hab.
             </button>
             <button
-              onClick={() => setPestaña("zonas")}
+              onClick={() => {
+                setPestaña("zonas");
+                setPaginaActual(1);
+              }}
               className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "zonas" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
             >
               <span>🗺️</span> Zonas
             </button>
             <button
-              onClick={() => setPestaña("habitaciones")}
+              onClick={() => {
+                setPestaña("habitaciones");
+                setPaginaActual(1);
+              }}
               className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "habitaciones" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
             >
               <span>🚪</span> Habitaciones
@@ -501,7 +578,7 @@ export default function PanelAdmin({ usuarioActual }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  {usuarios.map((u) => {
+                  {getItemsPaginados(usuarios).map((u) => {
                     const colorBadge =
                       ROLES_COLORES[u.rol] ||
                       "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200";
@@ -570,6 +647,7 @@ export default function PanelAdmin({ usuarioActual }) {
                   })}
                 </tbody>
               </table>
+              <RenderPaginacion lista={usuarios} />
             </div>
           </div>
         )}
@@ -615,7 +693,7 @@ export default function PanelAdmin({ usuarioActual }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  {hoteles.map((h) => {
+                  {getItemsPaginados(hoteles).map((h) => {
                     const esActivo = h.estatus !== "Inactivo";
                     return (
                       <tr
@@ -673,6 +751,7 @@ export default function PanelAdmin({ usuarioActual }) {
                   })}
                 </tbody>
               </table>
+              <RenderPaginacion lista={hoteles} />
             </div>
           </div>
         )}
@@ -716,7 +795,7 @@ export default function PanelAdmin({ usuarioActual }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  {tipos.map((t) => {
+                  {getItemsPaginados(tipos).map((t) => {
                     const esActivo = t.estatus !== "Inactivo";
                     return (
                       <tr
@@ -772,6 +851,7 @@ export default function PanelAdmin({ usuarioActual }) {
                   })}
                 </tbody>
               </table>
+              <RenderPaginacion lista={tipos} />
             </div>
           </div>
         )}
@@ -815,7 +895,7 @@ export default function PanelAdmin({ usuarioActual }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  {zonas.map((z) => {
+                  {getItemsPaginados(zonas).map((z) => {
                     const esActivo = z.estatus !== "Inactivo";
                     return (
                       <tr
@@ -867,6 +947,7 @@ export default function PanelAdmin({ usuarioActual }) {
                   })}
                 </tbody>
               </table>
+              <RenderPaginacion lista={zonas} />
             </div>
           </div>
         )}
@@ -905,7 +986,7 @@ export default function PanelAdmin({ usuarioActual }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  {habitaciones.map((h) => (
+                  {getItemsPaginados(habitaciones).map((h) => (
                     <tr
                       key={h.id}
                       className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
@@ -957,6 +1038,7 @@ export default function PanelAdmin({ usuarioActual }) {
                   ))}
                 </tbody>
               </table>
+              <RenderPaginacion lista={habitaciones} />
             </div>
           </div>
         )}
