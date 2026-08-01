@@ -89,6 +89,14 @@ try {
       $alias = substr($nombre, 0, 10);
     }
 
+    // Evitar Hoteles Duplicados
+    $stmtCheck = $pdo->prepare("SELECT id FROM hoteles WHERE (nombre = ? OR alias = ?) AND id != ?");
+    $stmtCheck->execute([$nombre, $alias, $id]);
+    if ($stmtCheck->rowCount() > 0) {
+      echo json_encode(['success' => false, 'message' => 'Ya existe un hotel con ese nombre o alias en el sistema.']);
+      exit;
+    }
+
     if ($id > 0) {
       $stmt = $pdo->prepare("UPDATE hoteles SET nombre = ?, alias = ?, direccion = ?, estatus = ? WHERE id = ?");
       $stmt->execute([$nombre, $alias, $direccion, $estatus, $id]);
@@ -119,6 +127,14 @@ try {
       exit;
     }
 
+    // Evitar Zonas Duplicadas en el mismo hotel
+    $stmtCheck = $pdo->prepare("SELECT id FROM zonas WHERE nombre = ? AND hotel_id = ? AND id != ?");
+    $stmtCheck->execute([$nombre, $hotel_id_zona, $id]);
+    if ($stmtCheck->rowCount() > 0) {
+      echo json_encode(['success' => false, 'message' => 'Esa zona operativa ya existe en este hotel.']);
+      exit;
+    }
+
     if ($id > 0) {
       $stmt = $pdo->prepare("UPDATE zonas SET nombre = ?, hotel_id = ?, estatus = ? WHERE id = ?");
       $stmt->execute([$nombre, $hotel_id_zona, $estatus, $id]);
@@ -141,6 +157,14 @@ try {
 
     if (empty($nombre)) {
       echo json_encode(['success' => false, 'message' => 'El nombre del tipo es obligatorio.']);
+      exit;
+    }
+
+    // Evitar Tipos de Habitación Duplicados
+    $stmtCheck = $pdo->prepare("SELECT id FROM tipos_habitacion WHERE nombre = ? AND hotel_id = ? AND id != ?");
+    $stmtCheck->execute([$nombre, $hotel_id_tipo, $id]);
+    if ($stmtCheck->rowCount() > 0) {
+      echo json_encode(['success' => false, 'message' => 'Esa categoría de habitación ya existe.']);
       exit;
     }
 
@@ -172,18 +196,19 @@ try {
 
     $zona_val = $zona_id > 0 ? $zona_id : null;
 
+    // Evitar Habitaciones Duplicadas Universal
+    $stmtCheck = $pdo->prepare("SELECT id FROM habitaciones WHERE hotel_id = ? AND numero = ? AND id != ?");
+    $stmtCheck->execute([$hotel_id_hab, $numero, $id]);
+    if ($stmtCheck->rowCount() > 0) {
+      echo json_encode(['success' => false, 'message' => "⚠️ La habitación '$numero' ya existe en este hotel."]);
+      exit;
+    }
+
     if ($id > 0) {
       $stmt = $pdo->prepare("UPDATE habitaciones SET hotel_id = ?, zona_actual_id = ?, numero = ?, tipo = ? WHERE id = ?");
       $stmt->execute([$hotel_id_hab, $zona_val, $numero, $tipo, $id]);
       echo json_encode(['success' => true, 'message' => 'Habitación actualizada.']);
     } else {
-      $stmtCheck = $pdo->prepare("SELECT id FROM habitaciones WHERE hotel_id = ? AND numero = ?");
-      $stmtCheck->execute([$hotel_id_hab, $numero]);
-      if ($stmtCheck->rowCount() > 0) {
-        echo json_encode(['success' => false, 'message' => "⚠️ La habitación '$numero' ya existe en este hotel."]);
-        exit;
-      }
-
       $stmt = $pdo->prepare("INSERT INTO habitaciones (hotel_id, zona_actual_id, numero, tipo, estatus_operativo) VALUES (?, ?, ?, ?, 'Limpia')");
       $stmt->execute([$hotel_id_hab, $zona_val, $numero, $tipo]);
       echo json_encode(['success' => true, 'message' => 'Habitación creada con éxito.']);

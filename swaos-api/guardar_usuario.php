@@ -40,16 +40,22 @@ try {
   $rol = trim($data['rol'] ?? 'Camarista');
   $hotel_base_id = intval($data['hotel_base_id'] ?? 1);
   $estatus = trim($data['estatus'] ?? 'Activo');
-
   if (empty($nombre) || empty($email)) {
     echo json_encode(['success' => false, 'message' => 'Nombre y correo son obligatorios.']);
+    exit;
+  }
+
+  // VALIDACIÓN ANTI-DUPLICADOS (Universal para Crear y Editar)
+  $stmtCheck = $pdo->prepare("SELECT id FROM usuarios WHERE email = ? AND id != ?");
+  $stmtCheck->execute([$email, $id]);
+  if ($stmtCheck->rowCount() > 0) {
+    echo json_encode(['success' => false, 'message' => 'Ese correo electrónico ya está registrado en otra cuenta.']);
     exit;
   }
 
   if ($id > 0) {
     if (!empty($password)) {
       $hash = password_hash($password, PASSWORD_DEFAULT);
-      // Usamos la variable $col_pass detectada dinámicamente
       $stmt = $pdo->prepare("UPDATE usuarios SET nombre=?, primer_apellido=?, segundo_apellido=?, email=?, $col_pass=?, rol=?, hotel_base_id=?, estatus=? WHERE id=?");
       $stmt->execute([$nombre, $primer_apellido, $segundo_apellido, $email, $hash, $rol, $hotel_base_id, $estatus, $id]);
     } else {
@@ -58,18 +64,9 @@ try {
     }
     echo json_encode(['success' => true, 'message' => 'Empleado actualizado con éxito.']);
   } else {
-    $stmtCheck = $pdo->prepare("SELECT id FROM usuarios WHERE email = ?");
-    $stmtCheck->execute([$email]);
-    if ($stmtCheck->rowCount() > 0) {
-      echo json_encode(['success' => false, 'message' => 'El correo ya está registrado en el sistema.']);
-      exit;
-    }
-
     $hash = password_hash(empty($password) ? '123456' : $password, PASSWORD_DEFAULT);
-    // Usamos la variable $col_pass detectada dinámicamente
     $stmt = $pdo->prepare("INSERT INTO usuarios (nombre, primer_apellido, segundo_apellido, email, $col_pass, rol, hotel_base_id, estatus) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([$nombre, $primer_apellido, $segundo_apellido, $email, $hash, $rol, $hotel_base_id, $estatus]);
-
     echo json_encode(['success' => true, 'message' => 'Nuevo empleado creado con éxito.']);
   }
 } catch (Exception $e) {

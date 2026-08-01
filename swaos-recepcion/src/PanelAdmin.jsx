@@ -424,7 +424,7 @@ export default function PanelAdmin({ usuarioActual }) {
 
     const confirmacion = await Swal.fire({
       title: "¿Eliminar permanentemente?",
-      text: `Estás a punto de borrar "${nombreItem}" del servidor MySQL. Esta acción no se puede deshacer.`,
+      text: `Estás a punto de borrar "${nombreItem}" Una vez eliminado, no podrás recuperar su información.`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#e11d48",
