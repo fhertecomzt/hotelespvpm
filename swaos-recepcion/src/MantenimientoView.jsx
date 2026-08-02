@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 
-const API_URL = "http://localhost/hotelespvpm/sistema/swaos-api";
+const API_URL = "/sistema/swaos-api";
 
 // ==========================================
 // MOTOR DE ALERTAS FLOTANTES (TOASTS)

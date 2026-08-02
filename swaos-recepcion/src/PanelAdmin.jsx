@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import GeneradorQR from "./GeneradorQR";
 
-const API_URL = "http://localhost/hotelespvpm/sistema/swaos-api";
+const API_URL = "/sistema/swaos-api";
 
 const ROLES_COLORES = {
   Superusuario:

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import QRCode from "react-qr-code";
 
-const API_URL = "http://localhost/hotelespvpm/sistema/swaos-api";
+const API_URL = "/sistema/swaos-api";
 
 export default function GeneradorQR() {
   const [data, setData] = useState(null);

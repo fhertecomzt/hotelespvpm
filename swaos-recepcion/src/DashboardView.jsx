@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import BitacoraView from "./BitacoraView";
 
-const API_URL = "http://localhost/hotelespvpm/sistema/swaos-api";
+const API_URL = "/sistema/swaos-api";
 
 export default function DashboardView({ usuarioActual }) {
   const [data, setData] = useState(null);

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import Swal from "sweetalert2";
 
-const API_URL = "http://localhost/hotelespvpm/sistema/swaos-api";
+const API_URL = "/sistema/swaos-api";
 
 const ESTATUS_LISTA = [
   "Ocupada",

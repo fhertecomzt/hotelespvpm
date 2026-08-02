@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 
-const API_URL = "http://localhost/hotelespvpm/sistema/swaos-api";
+const API_URL = "/sistema/swaos-api";
 
 const COLORES_ESTATUS = {
   Limpia: "bg-green-100 text-green-800 border-green-300",
@@ -93,23 +93,39 @@ useEffect(() => {
   }
 }, [usuarioActual]);
 
-  const handleCambioEstatus = (habitacionId, nuevoEstatus) => {
-    const nuevasHabitaciones = data.habitaciones.map((hab) => {
-      if (hab.id === habitacionId)
-        return { ...hab, estatus_operativo: nuevoEstatus };
-      return hab;
-    });
-    setData({ ...data, habitaciones: nuevasHabitaciones });
+const handleCambioEstatus = (habitacionId, nuevoEstatus) => {
+  // 1. Actualización optimista en la interfaz para que se sienta rápido
+  const nuevasHabitaciones = data.habitaciones.map((hab) => {
+    if (hab.id === habitacionId)
+      return { ...hab, estatus_operativo: nuevoEstatus };
+    return hab;
+  });
+  setData({ ...data, habitaciones: nuevasHabitaciones });
 
-    fetch(`${API_URL}/actualizar_estatus.php`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        habitacionId: `h${habitacionId}`,
-        nuevoEstatus: nuevoEstatus,
-      }),
-    }).catch((err) => console.error("Error:", err));
-  };
+  // 2. Petición al servidor (Corregida sin la letra "h")
+  fetch(`${API_URL}/actualizar_estatus.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      habitacionId: habitacionId, // 🔴 Corregido: Se envía el número puro
+      nuevoEstatus: nuevoEstatus,
+      usuario_id: usuarioActual.id, // Añadimos el ID por si la bitácora lo requiere
+    }),
+  })
+    .then((res) => res.json())
+    .then((respuesta) => {
+      // Si el servidor marca error, recargamos los datos para corregir la pantalla
+      if (!respuesta.success) {
+        console.error("El backend no pudo actualizar:", respuesta.message);
+        cargarTareas(usuarioActual.id, true);
+        alertaToast("error", "❌ Error al cambiar estatus");
+      }
+    })
+    .catch((err) => {
+      console.error("Error de conexión:", err);
+      cargarTareas(usuarioActual.id, true);
+    });
+};
 
   const comprimirImagen = (file) => {
     return new Promise((resolve) => {
