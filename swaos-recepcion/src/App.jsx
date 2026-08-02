@@ -9,6 +9,7 @@ import MantenimientoView from "./MantenimientoView";
 import PanelAdmin from "./PanelAdmin";
 import DashboardView from "./DashboardView";
 
+
 function App() {
   const [usuarioActual, setUsuarioActual] = useState(null);
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
+import GeneradorQR from "./GeneradorQR";
 
 const API_URL = "http://localhost/hotelespvpm/sistema/swaos-api";
 
@@ -534,6 +535,15 @@ export default function PanelAdmin({ usuarioActual }) {
             >
               <span>🚪</span> Habitaciones
             </button>
+            <button
+              onClick={() => {
+                setPestaña("qr");
+                setPaginaActual(1);
+              }}
+              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "qr" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
+            >
+              <span>🖨️</span> Códigos QR
+            </button>
           </div>
         </div>
 
@@ -1043,6 +1053,15 @@ export default function PanelAdmin({ usuarioActual }) {
           </div>
         )}
       </div>
+
+      {/* ========================================================= */}
+      {/* PESTAÑA 6: GENERADOR DE ETIQUETAS QR */}
+      {/* ========================================================= */}
+      {!cargando && pestaña === "qr" && (
+        <div className="animate-fadeIn">
+          <GeneradorQR />
+        </div>
+      )}
 
       {/* ========================================================= */}
       {/* MODAL 1: FORMULARIO EMPLEADO */}
