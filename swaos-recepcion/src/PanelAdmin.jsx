@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import Swal from "sweetalert2";
 import GeneradorQR from "./GeneradorQR";
+import { alertaToast } from "./utils";
 
 const API_URL = "/sistema/swaos-api";
 
@@ -17,28 +17,6 @@ const ROLES_COLORES = {
     "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-500/40",
   Camarista:
     "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-500/40",
-};
-
-// ==========================================
-// MOTOR DE ALERTAS FLOTANTES SAAS (TOASTS)
-// ==========================================
-const alertaToast = (icon, title) => {
-  const esOscuro = document.documentElement.classList.contains("dark");
-  Swal.fire({
-    toast: true,
-    position: "top-end",
-    icon: icon,
-    title: title,
-    showConfirmButton: false,
-    timer: 2800,
-    timerProgressBar: true,
-    background: esOscuro ? "#1e293b" : "#ffffff",
-    color: esOscuro ? "#f8fafc" : "#0f172a",
-    customClass: {
-      popup:
-        "border border-slate-200 dark:border-slate-700 shadow-xl rounded-2xl",
-    },
-  });
 };
 
 export default function PanelAdmin({ usuarioActual }) {

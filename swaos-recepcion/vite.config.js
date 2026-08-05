@@ -1,7 +1,16 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-})
+  server: {
+    proxy: {
+      // Le decimos a Vite que intercepte estas rutas relativas
+      "/sistema/swaos-api": {
+        target: "http://localhost/hotelespvpm/", // La dirección de tu servidor Apache/XAMPP local
+        changeOrigin: true, // Necesario para evitar problemas de CORS en local
+        secure: false, // Como estamos en localhost sin https, lo dejamos en false
+      },
+    },
+  },
+});

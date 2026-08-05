@@ -271,7 +271,7 @@ function App() {
                   "Superusuario",
                 ]}
               >
-                <EscanerQR />
+                <EscanerQR usuarioActual={usuarioActual} />
               </RutaProtegida>
             }
           />

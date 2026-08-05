@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import Swal from "sweetalert2";
 import { Scanner } from "@yudiel/react-qr-scanner";
+import ModalReporteDano from "./ModalReporteDano";
+import { alertaToast, comprimirImagen } from "./utils";
 
 const API_URL = "/sistema/swaos-api";
 
@@ -13,24 +14,12 @@ const COLORES_ESTATUS = {
   DND: "bg-red-100 text-red-800 border-red-300",
 };
 
-const TIPOS_DANO = [
-  "Aire Acondicionado",
-  "Plomería",
-  "Eléctrico",
-  "Mobiliario",
-  "Otro",
-];
-
 // Recibimos al usuario logueado en las propiedades
 export default function CamaristaView({ usuarioActual }) {
   const [data, setData] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [subiendoFoto, setSubiendoFoto] = useState(null);
   const [modalDano, setModalDano] = useState(null);
-  const [tipoDano, setTipoDano] = useState(TIPOS_DANO[0]);
-  const [descDano, setDescDano] = useState("");
-  const [fotoDano, setFotoDano] = useState(null);
-  const [enviandoReporte, setEnviandoReporte] = useState(false);
   const [habitacionAEscanear, setHabitacionAEscanear] = useState(null);
 
   const handleValidarPresencia = (textoDetectado) => {
@@ -67,28 +56,6 @@ export default function CamaristaView({ usuarioActual }) {
     }
   };
 
-  // ==========================================
-  // MOTOR DE ALERTAS FLOTANTES (TOASTS)
-  // ==========================================
-  const alertaToast = (icon, title) => {
-    const esOscuro = document.documentElement.classList.contains("dark");
-    Swal.fire({
-      toast: true,
-      position: "top-end",
-      icon: icon,
-      title: title,
-      showConfirmButton: false,
-      timer: 2500,
-      timerProgressBar: true,
-      background: esOscuro ? "#1e293b" : "#ffffff",
-      color: esOscuro ? "#f8fafc" : "#0f172a",
-      customClass: {
-        popup:
-          "border border-slate-200 dark:border-slate-700 shadow-xl rounded-2xl text-xs font-bold",
-      },
-    });
-  };
-
   // Cargamos estrictamente las tareas del ID autenticado (soporta modo silencioso para tiempo real)
   const cargarTareas = (id, silencioso = false) => {
     if (!id) return;
@@ -114,89 +81,53 @@ export default function CamaristaView({ usuarioActual }) {
       });
   };
 
-useEffect(() => {
-  if (usuarioActual?.id) {
-    // 1. Primera carga: muestra el spinner normalmente
-    cargarTareas(usuarioActual.id, false);
+  useEffect(() => {
+    if (usuarioActual?.id) {
+      // 1. Primera carga: muestra el spinner normalmente
+      cargarTareas(usuarioActual.id, false);
 
-    // 2. Sincronización automática en vivo (cada 7 segundos y en silencio)
-    const intervalo = setInterval(() => {
-      cargarTareas(usuarioActual.id, true);
-    }, 7000);
-
-    // 3. Limpieza: apaga el temporizador si sale de la vista
-    return () => clearInterval(intervalo);
-  }
-}, [usuarioActual]);
-
-const handleCambioEstatus = (habitacionId, nuevoEstatus) => {
-  // 1. Actualización optimista en la interfaz para que se sienta rápido
-  const nuevasHabitaciones = data.habitaciones.map((hab) => {
-    if (hab.id === habitacionId)
-      return { ...hab, estatus_operativo: nuevoEstatus };
-    return hab;
-  });
-  setData({ ...data, habitaciones: nuevasHabitaciones });
-
-  // 2. Petición al servidor (Corregida sin la letra "h")
-  fetch(`${API_URL}/actualizar_estatus.php`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      habitacionId: habitacionId, // 🔴 Corregido: Se envía el número puro
-      nuevoEstatus: nuevoEstatus,
-      usuario_id: usuarioActual.id, // Añadimos el ID por si la bitácora lo requiere
-    }),
-  })
-    .then((res) => res.json())
-    .then((respuesta) => {
-      // Si el servidor marca error, recargamos los datos para corregir la pantalla
-      if (!respuesta.success) {
-        console.error("El backend no pudo actualizar:", respuesta.message);
+      // 2. Sincronización automática en vivo (cada 7 segundos y en silencio)
+      const intervalo = setInterval(() => {
         cargarTareas(usuarioActual.id, true);
-        alertaToast("error", "❌ Error al cambiar estatus");
-      }
+      }, 7000);
+
+      // 3. Limpieza: apaga el temporizador si sale de la vista
+      return () => clearInterval(intervalo);
+    }
+  }, [usuarioActual]);
+
+  const handleCambioEstatus = (habitacionId, nuevoEstatus) => {
+    // 1. Actualización optimista en la interfaz para que se sienta rápido
+    const nuevasHabitaciones = data.habitaciones.map((hab) => {
+      if (hab.id === habitacionId)
+        return { ...hab, estatus_operativo: nuevoEstatus };
+      return hab;
+    });
+    setData({ ...data, habitaciones: nuevasHabitaciones });
+
+    // 2. Petición al servidor (Corregida sin la letra "h")
+    fetch(`${API_URL}/actualizar_estatus.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        habitacionId: habitacionId, // 🔴 Corregido: Se envía el número puro
+        nuevoEstatus: nuevoEstatus,
+        usuario_id: usuarioActual.id, // Añadimos el ID por si la bitácora lo requiere
+      }),
     })
-    .catch((err) => {
-      console.error("Error de conexión:", err);
-      cargarTareas(usuarioActual.id, true);
-    });
-};
-
-  const comprimirImagen = (file) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const MAX_WIDTH = 1024;
-          const MAX_HEIGHT = 1024;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob((blob) => resolve(blob), "image/webp", 0.75);
-        };
-      };
-    });
+      .then((res) => res.json())
+      .then((respuesta) => {
+        // Si el servidor marca error, recargamos los datos para corregir la pantalla
+        if (!respuesta.success) {
+          console.error("El backend no pudo actualizar:", respuesta.message);
+          cargarTareas(usuarioActual.id, true);
+          alertaToast("error", "❌ Error al cambiar estatus");
+        }
+      })
+      .catch((err) => {
+        console.error("Error de conexión:", err);
+        cargarTareas(usuarioActual.id, true);
+      });
   };
 
   const handleTomarFoto = async (e, habitacionId) => {
@@ -224,54 +155,6 @@ const handleCambioEstatus = (habitacionId, nuevoEstatus) => {
     } finally {
       setSubiendoFoto(null);
       e.target.value = "";
-    }
-  };
-
-  const enviarReporteDano = async () => {
-    if (!modalDano) return;
-
-    // 🔒 VALIDACIÓN DE TEXTO VACÍO: Evita reportes en blanco o de puros espacios
-    if (!descDano || descDano.trim() === "") {
-      alertaToast(
-        "error",
-        "⚠️ Por favor describe cuál es la falla antes de enviar.",
-      );
-      return;
-    }
-
-    setEnviandoReporte(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("habitacion_id", modalDano);
-      formData.append("usuario_id", usuarioActual.id); // Usamos ID real de sesión
-      formData.append("tipo_dano", tipoDano);
-      formData.append("descripcion", descDano);
-
-      if (fotoDano) {
-        const blobComprimido = await comprimirImagen(fotoDano);
-        formData.append("foto", blobComprimido, `dano_${modalDano}.webp`);
-      }
-
-      const res = await fetch(`${API_URL}/reportar_dano.php`, {
-        method: "POST",
-        body: formData,
-      });
-      const respuesta = await res.json();
-
-      if (respuesta.success) {
-        alertaToast("success", "⚠️ Falla reportada a Mantenimiento");
-        setModalDano(null);
-        setTipoDano(TIPOS_DANO[0]);
-        setDescDano("");
-        setFotoDano(null);
-      } else {
-        alertaToast("error", "❌ Error" + respuesta.message);
-      }
-    } catch (err) {
-      alertaToast("error", "❌ Error de red o al procesar la imagen del daño.");
-    } finally {
-      setEnviandoReporte(false);
     }
   };
 
@@ -423,89 +306,13 @@ const handleCambioEstatus = (habitacionId, nuevoEstatus) => {
         )}
       </div>
 
-      {/* MODAL DE REPORTES DE DAÑO */}
+      {/* MODAL DE REPORTES DE DAÑO REUTILIZABLE */}
       {modalDano && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h3 className="text-xl font-black text-slate-800 border-b pb-3 mb-4 flex items-center gap-2">
-              <span>⚠️</span> Reportar Daño
-            </h3>
-
-            <div className="mb-4">
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                ¿Qué está fallando?
-              </label>
-              <select
-                value={tipoDano}
-                onChange={(e) => setTipoDano(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-lg p-2.5 focus:ring-2 focus:ring-red-400 focus:outline-none"
-              >
-                {TIPOS_DANO.map((tipo) => (
-                  <option key={tipo} value={tipo}>
-                    {tipo}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Evidencia Fotográfica (Opcional)
-              </label>
-              <input
-                type="file"
-                id="foto-dano-input"
-                accept="image/*"
-                capture="environment"
-                onChange={(e) => setFotoDano(e.target.files[0])}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  document.getElementById("foto-dano-input").click()
-                }
-                className={`w-full border border-dashed font-semibold p-2.5 rounded-lg text-xs flex items-center justify-center gap-2 transition-colors ${fotoDano ? "bg-red-50 border-red-400 text-red-700" : "bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700"}`}
-              >
-                <span>📸</span>{" "}
-                {fotoDano
-                  ? `Foto lista: ${fotoDano.name.substring(0, 18)}...`
-                  : "Tomar / Adjuntar foto del daño"}
-              </button>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Detalles (Opcional)
-              </label>
-              <textarea
-                value={descDano}
-                onChange={(e) => setDescDano(e.target.value)}
-                placeholder="Ej. La llave del lavabo está goteando..."
-                className="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-lg p-2.5 focus:ring-2 focus:ring-red-400 focus:outline-none h-20 resize-none"
-              ></textarea>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setModalDano(null);
-                  setFotoDano(null);
-                }}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 rounded-xl transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={enviarReporteDano}
-                disabled={enviandoReporte}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-md transition-colors disabled:opacity-50"
-              >
-                {enviandoReporte ? "Enviando..." : "Enviar Reporte"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ModalReporteDano
+          habitacionId={modalDano}
+          usuarioId={usuarioActual.id}
+          onClose={() => setModalDano(null)}
+        />
       )}
 
       {/* MODAL DE VALIDACIÓN DE PRESENCIA CON CÁMARA */}

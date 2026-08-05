@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { useNavigate } from "react-router-dom";
+import ModalReporteDano from "./ModalReporteDano"; // Ajusta la ruta según donde lo hayas guardado
 
-export default function EscanerQR() {
+export default function EscanerQR({ usuarioActual }) {
   const [datosHabitacion, setDatosHabitacion] = useState(null);
   const [errorQR, setErrorQR] = useState("");
   const navigate = useNavigate();
+  const [mostrarModalDano, setMostrarModalDano] = useState(false);
 
   // Función que se ejecuta cada vez que la cámara capta un código
   const handleScan = (textoDetectado) => {
@@ -86,11 +88,7 @@ export default function EscanerQR() {
 
             <div className="space-y-3">
               <button
-                onClick={() =>
-                  alert(
-                    `Acción rápida: Reportar daño en Hab ${datosHabitacion.num}`,
-                  )
-                }
+                onClick={() => setMostrarModalDano(true)}
                 className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-xl transition-colors border border-red-200"
               >
                 ⚠️ Reportar Daño Rápido
@@ -106,6 +104,13 @@ export default function EscanerQR() {
           </div>
         )}
       </div>
+      {mostrarModalDano && (
+        <ModalReporteDano
+          habitacionId={datosHabitacion.hab_id}
+          usuarioId={usuarioActual.id} // Asegúrate de pasar el usuarioActual al EscanerQR
+          onClose={() => setMostrarModalDano(false)}
+        />
+      )}
     </div>
   );
 }
