@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Swal from "sweetalert2";
+import { Scanner } from "@yudiel/react-qr-scanner";
 
 const API_URL = "/sistema/swaos-api";
 
@@ -30,6 +31,41 @@ export default function CamaristaView({ usuarioActual }) {
   const [descDano, setDescDano] = useState("");
   const [fotoDano, setFotoDano] = useState(null);
   const [enviandoReporte, setEnviandoReporte] = useState(false);
+  const [habitacionAEscanear, setHabitacionAEscanear] = useState(null);
+
+  const handleValidarPresencia = (textoDetectado) => {
+    if (textoDetectado) {
+      try {
+        const data = JSON.parse(textoDetectado[0].rawValue);
+
+        // 1. Validamos que sea un QR de SWAOS y que el ID de la etiqueta coincida con el ID que guardamos en 'habitacionAEscanear'
+        if (data.sys === "SWAOS") {
+          if (parseInt(data.hab_id) === habitacionAEscanear) {
+            // ¡ÉXITO! La camarista está en la puerta correcta
+            alertaToast(
+              "success",
+              "📍 Presencia confirmada. ¡Arrancando tiempo!",
+            );
+
+            // Disparamos la actualización a la base de datos automáticamente
+            handleCambioEstatus(habitacionAEscanear, "En Proceso");
+
+            // Cerramos la cámara
+            setHabitacionAEscanear(null);
+          } else {
+            alertaToast(
+              "error",
+              `❌ Error: Escaneaste la Hab. ${data.num}. Debes estar en la correcta.`,
+            );
+          }
+        } else {
+          alertaToast("error", "❌ El código no pertenece a este hotel.");
+        }
+      } catch (err) {
+        alertaToast("error", "❌ Formato de QR inválido o dañado.");
+      }
+    }
+  };
 
   // ==========================================
   // MOTOR DE ALERTAS FLOTANTES (TOASTS)
@@ -328,12 +364,10 @@ const handleCambioEstatus = (habitacionId, nuevoEstatus) => {
                     <div className="mt-4 pt-3 border-t border-slate-100 flex gap-2">
                       {!enProceso && !esLimpia && (
                         <button
-                          onClick={() =>
-                            handleCambioEstatus(hab.id, "En Proceso")
-                          }
+                          onClick={() => setHabitacionAEscanear(hab.id)}
                           className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-3 rounded-lg text-sm shadow flex justify-center gap-1.5"
                         >
-                          <span>🧹</span> Iniciar Aseo
+                          <span>📷</span> Escanear para Iniciar
                         </button>
                       )}
 
@@ -471,6 +505,39 @@ const handleCambioEstatus = (habitacionId, nuevoEstatus) => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* MODAL DE VALIDACIÓN DE PRESENCIA CON CÁMARA */}
+      {habitacionAEscanear && (
+        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 animate-fade-in-up">
+          <h3 className="text-white font-black text-xl mb-6 flex items-center gap-2">
+            <span>📷</span> Escanea la puerta
+          </h3>
+
+          <div className="w-full max-w-sm bg-black rounded-2xl overflow-hidden shadow-2xl border-4 border-amber-500 relative">
+            <Scanner
+              onScan={handleValidarPresencia}
+              formats={["qr_code"]}
+              components={{
+                audio: true,
+                onOff: true,
+                torch: true,
+              }}
+            />
+            <div className="absolute top-0 left-0 right-0 bg-black/60 p-2 text-center">
+              <p className="text-amber-400 text-xs font-bold uppercase tracking-widest">
+                Validando ubicación física
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setHabitacionAEscanear(null)}
+            className="mt-8 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-colors"
+          >
+            ✖ Cancelar
+          </button>
         </div>
       )}
     </div>
