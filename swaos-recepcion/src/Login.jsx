@@ -25,6 +25,9 @@ export default function Login({ setUsuarioActual }) {
       .then((res) => {
         setCargando(false);
         if (res.success) {
+          //Guardamos una copia en el disco duro del navegador
+          localStorage.setItem("swaos_usuario", JSON.stringify(res.usuario));
+
           // Guardar estado del usuario a nivel global
           setUsuarioActual(res.usuario);
 

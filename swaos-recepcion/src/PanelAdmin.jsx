@@ -20,7 +20,23 @@ const ROLES_COLORES = {
 };
 
 export default function PanelAdmin({ usuarioActual }) {
-  const [pestaña, setPestaña] = useState("personal");
+  const esSuperusuario = usuarioActual?.rol === "Superusuario";
+  const esAdmin = usuarioActual?.rol === "Administrador";
+
+  // 🛡️ MOTOR DE VERIFICACIÓN DE PERMISOS
+  const tieneAcceso = (permiso) => {
+    if (esSuperusuario || esAdmin) return true; // Jefes ven todo
+    return usuarioActual?.permisos?.includes(permiso);
+  };
+
+  // 🎯 DETERMINAR QUÉ PESTAÑA ABRIR POR DEFECTO
+  const [pestaña, setPestaña] = useState(() => {
+    if (tieneAcceso("crear_empleado")) return "personal";
+    if (esSuperusuario) return "hoteles";
+    if (tieneAcceso("gestionar_zonas")) return "zonas";
+    if (tieneAcceso("gestionar_habitaciones")) return "habitaciones";
+    return "";
+  });
 
   // ESTADOS DE LISTADOS DATOS
   const [usuarios, setUsuarios] = useState([]);
@@ -89,13 +105,53 @@ export default function PanelAdmin({ usuarioActual }) {
   const [zonaIdHab, setZonaIdHab] = useState(0);
 
   const [guardando, setGuardando] = useState(false);
-  const esSuperusuario = usuarioActual?.rol === "Superusuario";
+
+  // FILTRO DE JERARQUÍA Y SILOS DEPARTAMENTALES
+  const usuariosFiltrados = usuarios.filter((u) => {
+    if (esSuperusuario) return true; // El Superusuario ve absolutamente a todos
+    if (esAdmin) return u.rol !== "Superusuario"; // El Admin ve a todos menos al Superusuario
+
+    // Reglas para Jefes de Departamento (Mandos Medios con permiso de crear empleados)
+    if (usuarioActual?.rol === "Ama de Llaves") {
+      return u.rol === "Ama de Llaves" || u.rol === "Camarista";
+    }
+    if (usuarioActual?.rol === "Recepcion") {
+      return u.rol === "Recepcion";
+    }
+    if (usuarioActual?.rol === "Mantenimiento") {
+      return u.rol === "Mantenimiento";
+    }
+
+    // Fallback de seguridad: Si alguien más logra entrar, solo se ve a sí mismo
+    return u.id === usuarioActual?.id;
+  });
 
   // TRADUCTOR DINÁMICO DE ID A ALIAS DEL HOTEL
   const getHotelLabel = (id) => {
     const h = hoteles.find((item) => Number(item.id) === Number(id));
     if (!h) return `🏨 Hotel ID ${id}`;
     return `🏨 ${h.alias || h.nombre}`;
+  };
+
+  // NUEVO ESTADO PARA PERMISOS
+  const [permisosEmp, setPermisosEmp] = useState([]);
+
+  // DICCIONARIO DE PERMISOS DISPONIBLES
+  const LISTA_PERMISOS = [
+    { id: "crear_empleado", label: "Administrar Empleados" },
+    { id: "gestionar_hoteles", label: "Administrar Hoteles (SaaS)" },
+    { id: "gestionar_zonas", label: "Configurar Zonas y Tipos" },
+    { id: "gestionar_habitaciones", label: "Editar Cuartos y QR" },
+    { id: "asignar_camaristas", label: "Asignar Zonas (Ama de Llaves)" },
+  ];
+
+  // FUNCIÓN PARA MARCAR/DESMARCAR CASILLAS
+  const togglePermiso = (permisoId) => {
+    setPermisosEmp((prev) =>
+      prev.includes(permisoId)
+        ? prev.filter((p) => p !== permisoId)
+        : [...prev, permisoId],
+    );
   };
 
   // ==========================================
@@ -203,6 +259,7 @@ export default function PanelAdmin({ usuarioActual }) {
     setRol("Camarista");
     setHotelIdEmp(usuarioActual?.hotel_id || 1);
     setEstatusEmp("Activo");
+    setPermisosEmp([]); // Limpiamos los permisos para un empleado nuevo
     setModalFormulario(true);
   };
 
@@ -216,6 +273,7 @@ export default function PanelAdmin({ usuarioActual }) {
     setRol(u.rol);
     setHotelIdEmp(u.hotel_base_id);
     setEstatusEmp(u.estatus || "Activo");
+    setPermisosEmp(u.permisos || []); // Cargamos los permisos si ya los tiene
     setModalFormulario(true);
   };
 
@@ -235,6 +293,9 @@ export default function PanelAdmin({ usuarioActual }) {
         rol,
         hotel_base_id: hotelIdEmp,
         estatus: estatusEmp,
+        permisos: permisosEmp, // Añadimos el arreglo al envío
+        // 🔴 NUEVO: Le enviamos al servidor nuestra "placa" o rol actual para que nos valide
+        rol_solicitante: usuarioActual?.rol || "Desconocido",
       }),
     })
       .then((res) => res.json())
@@ -466,15 +527,18 @@ export default function PanelAdmin({ usuarioActual }) {
           </div>
 
           <div className="bg-slate-100 dark:bg-slate-900 p-1 rounded-xl flex flex-wrap gap-1 w-full md:w-auto transition-colors">
-            <button
-              onClick={() => {
-                setPestaña("personal");
-                setPaginaActual(1);
-              }}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "personal" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
-            >
-              <span>👥</span> Personal y Roles
-            </button>
+            {tieneAcceso("crear_empleado") && (
+              <button
+                onClick={() => {
+                  setPestaña("personal");
+                  setPaginaActual(1);
+                }}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "personal" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
+              >
+                <span>👥</span> Personal y Roles
+              </button>
+            )}
+
             {esSuperusuario && (
               <button
                 onClick={() => {
@@ -486,42 +550,54 @@ export default function PanelAdmin({ usuarioActual }) {
                 <span>🏢</span> Hoteles (SaaS)
               </button>
             )}
-            <button
-              onClick={() => {
-                setPestaña("tipos");
-                setPaginaActual(1);
-              }}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "tipos" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
-            >
-              <span>🛏️</span> Tipos de Hab.
-            </button>
-            <button
-              onClick={() => {
-                setPestaña("zonas");
-                setPaginaActual(1);
-              }}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "zonas" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
-            >
-              <span>🗺️</span> Zonas
-            </button>
-            <button
-              onClick={() => {
-                setPestaña("habitaciones");
-                setPaginaActual(1);
-              }}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "habitaciones" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
-            >
-              <span>🚪</span> Habitaciones
-            </button>
-            <button
-              onClick={() => {
-                setPestaña("qr");
-                setPaginaActual(1);
-              }}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "qr" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
-            >
-              <span>🖨️</span> Códigos QR
-            </button>
+
+            {tieneAcceso("gestionar_zonas") && (
+              <button
+                onClick={() => {
+                  setPestaña("tipos");
+                  setPaginaActual(1);
+                }}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "tipos" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
+              >
+                <span>🛏️</span> Tipos de Hab.
+              </button>
+            )}
+
+            {tieneAcceso("gestionar_zonas") && (
+              <button
+                onClick={() => {
+                  setPestaña("zonas");
+                  setPaginaActual(1);
+                }}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "zonas" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
+              >
+                <span>🗺️</span> Zonas
+              </button>
+            )}
+
+            {tieneAcceso("gestionar_habitaciones") && (
+              <button
+                onClick={() => {
+                  setPestaña("habitaciones");
+                  setPaginaActual(1);
+                }}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "habitaciones" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
+              >
+                <span>🚪</span> Habitaciones
+              </button>
+            )}
+
+            {tieneAcceso("gestionar_habitaciones") && (
+              <button
+                onClick={() => {
+                  setPestaña("qr");
+                  setPaginaActual(1);
+                }}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "qr" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
+              >
+                <span>🖨️</span> Códigos QR
+              </button>
+            )}
           </div>
         </div>
 
@@ -534,111 +610,117 @@ export default function PanelAdmin({ usuarioActual }) {
         {/* ========================================================= */}
         {/* PESTAÑA 1: PERSONAL Y ROLES */}
         {/* ========================================================= */}
-        {!cargando && pestaña === "personal" && (
-          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-700/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/40">
-              <div>
-                <h2 className="font-bold text-slate-800 dark:text-white text-lg">
-                  Directorio de Empleados
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Total registrados: {usuarios.length} cuentas
-                </p>
+        {!cargando &&
+          pestaña === "personal" &&
+          tieneAcceso("crear_empleado") && (
+            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-700/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/40">
+                <div>
+                  <h2 className="font-bold text-slate-800 dark:text-white text-lg">
+                    Directorio de Empleados
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Total registrados: {usuarios.length} cuentas
+                  </p>
+                </div>
+                <button
+                  onClick={abrirModalNuevoEmp}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm shadow-sm transition-colors flex items-center gap-2"
+                >
+                  <span>➕</span> Nuevo Empleado
+                </button>
               </div>
-              <button
-                onClick={abrirModalNuevoEmp}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm shadow-sm transition-colors flex items-center gap-2"
-              >
-                <span>➕</span> Nuevo Empleado
-              </button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-100 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 text-[11px] font-black uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                    <th className="p-4">ID</th>
-                    <th className="p-4">Nombre Completo</th>
-                    <th className="p-4">Correo</th>
-                    <th className="p-4">Rol / Depto</th>
-                    <th className="p-4">Estatus</th>
-                    <th className="p-4">Hotel</th>
-                    <th className="p-4 text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  {getItemsPaginados(usuarios).map((u) => {
-                    const colorBadge =
-                      ROLES_COLORES[u.rol] ||
-                      "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200";
-                    const nombreComp =
-                      `${u.nombre} ${u.primer_apellido} ${u.segundo_apellido || ""}`.trim();
-                    const esTu = u.id === usuarioActual?.id;
-                    const esActivo = u.estatus !== "Inactivo";
-                    return (
-                      <tr
-                        key={u.id}
-                        className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${!esActivo ? "opacity-50 grayscale-[50%]" : ""}`}
-                      >
-                        <td className="p-4 font-mono text-xs text-slate-400">
-                          #{u.id}
-                        </td>
-                        <td className="p-4 font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                          <span>{nombreComp}</span>{" "}
-                          {esTu && (
-                            <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">
-                              Tú
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-4 text-slate-600 dark:text-slate-300 font-normal">
-                          {u.email}
-                        </td>
-                        <td className="p-4">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-xs font-bold border ${colorBadge}`}
-                          >
-                            {u.rol}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-[11px] font-black uppercase border ${esActivo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"}`}
-                          >
-                            ● {u.estatus || "Activo"}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span className="bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-bold px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800/40 text-xs">
-                            {getHotelLabel(u.hotel_base_id)}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right space-x-2">
-                          <button
-                            onClick={() => abrirModalEditarEmp(u)}
-                            className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold"
-                          >
-                            ✏️ Editar
-                          </button>
-                          {!esTu && u.id !== 1 && (
-                            <button
-                              onClick={() =>
-                                handleEliminarItem(u.id, "usuarios", nombreComp)
-                              }
-                              className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 px-3 py-1.5 rounded-lg text-xs font-bold"
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 text-[11px] font-black uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                      <th className="p-4">ID</th>
+                      <th className="p-4">Nombre Completo</th>
+                      <th className="p-4">Correo</th>
+                      <th className="p-4">Rol / Depto</th>
+                      <th className="p-4">Estatus</th>
+                      <th className="p-4">Hotel</th>
+                      <th className="p-4 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    {getItemsPaginados(usuariosFiltrados).map((u) => {
+                      const colorBadge =
+                        ROLES_COLORES[u.rol] ||
+                        "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200";
+                      const nombreComp =
+                        `${u.nombre} ${u.primer_apellido} ${u.segundo_apellido || ""}`.trim();
+                      const esTu = u.id === usuarioActual?.id;
+                      const esActivo = u.estatus !== "Inactivo";
+                      return (
+                        <tr
+                          key={u.id}
+                          className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${!esActivo ? "opacity-50 grayscale-[50%]" : ""}`}
+                        >
+                          <td className="p-4 font-mono text-xs text-slate-400">
+                            #{u.id}
+                          </td>
+                          <td className="p-4 font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                            <span>{nombreComp}</span>{" "}
+                            {esTu && (
+                              <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">
+                                Tú
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4 text-slate-600 dark:text-slate-300 font-normal">
+                            {u.email}
+                          </td>
+                          <td className="p-4">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-xs font-bold border ${colorBadge}`}
                             >
-                              🗑️ Borrar
+                              {u.rol}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[11px] font-black uppercase border ${esActivo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"}`}
+                            >
+                              ● {u.estatus || "Activo"}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span className="bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-bold px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800/40 text-xs">
+                              {getHotelLabel(u.hotel_base_id)}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right space-x-2">
+                            <button
+                              onClick={() => abrirModalEditarEmp(u)}
+                              className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold"
+                            >
+                              ✏️ Editar
                             </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              <RenderPaginacion lista={usuarios} />
+                            {!esTu && u.id !== 1 && (
+                              <button
+                                onClick={() =>
+                                  handleEliminarItem(
+                                    u.id,
+                                    "usuarios",
+                                    nombreComp,
+                                  )
+                                }
+                                className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 px-3 py-1.5 rounded-lg text-xs font-bold"
+                              >
+                                🗑️ Borrar
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <RenderPaginacion lista={usuariosFiltrados} />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* ========================================================= */}
         {/* PESTAÑA 2: HOTELES (MODO SAAS CON ALIAS) */}
@@ -747,7 +829,7 @@ export default function PanelAdmin({ usuarioActual }) {
         {/* ========================================================= */}
         {/* PESTAÑA 3: TIPOS DE HABITACIÓN */}
         {/* ========================================================= */}
-        {!cargando && pestaña === "tipos" && (
+        {!cargando && pestaña === "tipos" && tieneAcceso("gestionar_zonas") && (
           <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
             <div className="p-6 border-b border-slate-100 dark:border-slate-700/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/40">
               <div>
@@ -847,7 +929,7 @@ export default function PanelAdmin({ usuarioActual }) {
         {/* ========================================================= */}
         {/* PESTAÑA 4: ZONAS OPERATIVAS */}
         {/* ========================================================= */}
-        {!cargando && pestaña === "zonas" && (
+        {!cargando && pestaña === "zonas" && tieneAcceso("gestionar_zonas") && (
           <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
             <div className="p-6 border-b border-slate-100 dark:border-slate-700/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/40">
               <div>
@@ -943,103 +1025,108 @@ export default function PanelAdmin({ usuarioActual }) {
         {/* ========================================================= */}
         {/* PESTAÑA 5: HABITACIONES */}
         {/* ========================================================= */}
-        {!cargando && pestaña === "habitaciones" && (
-          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-700/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/40">
-              <div>
-                <h2 className="font-bold text-slate-800 dark:text-white text-lg">
-                  Catálogo de Habitaciones
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Inventario físico: {habitaciones.length} cuartos configurados
-                </p>
+        {!cargando &&
+          pestaña === "habitaciones" &&
+          tieneAcceso("gestionar_habitaciones") && (
+            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-700/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/40">
+                <div>
+                  <h2 className="font-bold text-slate-800 dark:text-white text-lg">
+                    Catálogo de Habitaciones
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Inventario físico: {habitaciones.length} cuartos
+                    configurados
+                  </p>
+                </div>
+                <button
+                  onClick={abrirModalNuevaHab}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm shadow-sm transition-colors flex items-center gap-2"
+                >
+                  <span>➕</span> Registrar Habitación
+                </button>
               </div>
-              <button
-                onClick={abrirModalNuevaHab}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm shadow-sm transition-colors flex items-center gap-2"
-              >
-                <span>➕</span> Registrar Habitación
-              </button>
-            </div>
-            <div className="overflow-x-auto max-h-[600px]">
-              <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 bg-slate-100 dark:bg-slate-900 z-10">
-                  <tr className="text-slate-500 dark:text-slate-400 text-[11px] font-black uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                    <th className="p-4">ID</th>
-                    <th className="p-4">Hotel</th>
-                    <th className="p-4">Número</th>
-                    <th className="p-4">Tipo</th>
-                    <th className="p-4">Zona Asignada</th>
-                    <th className="p-4 text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  {getItemsPaginados(habitaciones).map((h) => (
-                    <tr
-                      key={h.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
-                    >
-                      <td className="p-4 font-mono text-xs text-slate-400">
-                        #{h.id}
-                      </td>
-                      <td className="p-4">
-                        <span className="bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-bold px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800/40 text-xs">
-                          {getHotelLabel(h.hotel_id)}
-                        </span>
-                      </td>
-                      <td className="p-4 font-black text-slate-800 dark:text-white text-lg">
-                        🚪 Hab. {h.numero}
-                      </td>
-                      <td className="p-4">
-                        <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-md text-xs font-bold border border-indigo-200 dark:border-indigo-800/40">
-                          {h.tipo}
-                        </span>
-                      </td>
-                      <td className="p-4 font-semibold text-slate-600 dark:text-slate-300">
-                        {h.zona_nombre || (
-                          <span className="text-amber-500 italic">
-                            Sin Zona
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-4 text-right space-x-2">
-                        <button
-                          onClick={() => abrirModalEditarHab(h)}
-                          className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold"
-                        >
-                          ✏️ Editar
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleEliminarItem(
-                              h.id,
-                              "habitaciones",
-                              `Hab. ${h.numero}`,
-                            )
-                          }
-                          className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 px-3 py-1.5 rounded-lg text-xs font-bold"
-                        >
-                          🗑️ Borrar
-                        </button>
-                      </td>
+              <div className="overflow-x-auto max-h-[600px]">
+                <table className="w-full text-left border-collapse">
+                  <thead className="sticky top-0 bg-slate-100 dark:bg-slate-900 z-10">
+                    <tr className="text-slate-500 dark:text-slate-400 text-[11px] font-black uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                      <th className="p-4">ID</th>
+                      <th className="p-4">Hotel</th>
+                      <th className="p-4">Número</th>
+                      <th className="p-4">Tipo</th>
+                      <th className="p-4">Zona Asignada</th>
+                      <th className="p-4 text-right">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <RenderPaginacion lista={habitaciones} />
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    {getItemsPaginados(habitaciones).map((h) => (
+                      <tr
+                        key={h.id}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                      >
+                        <td className="p-4 font-mono text-xs text-slate-400">
+                          #{h.id}
+                        </td>
+                        <td className="p-4">
+                          <span className="bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-bold px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800/40 text-xs">
+                            {getHotelLabel(h.hotel_id)}
+                          </span>
+                        </td>
+                        <td className="p-4 font-black text-slate-800 dark:text-white text-lg">
+                          🚪 Hab. {h.numero}
+                        </td>
+                        <td className="p-4">
+                          <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-md text-xs font-bold border border-indigo-200 dark:border-indigo-800/40">
+                            {h.tipo}
+                          </span>
+                        </td>
+                        <td className="p-4 font-semibold text-slate-600 dark:text-slate-300">
+                          {h.zona_nombre || (
+                            <span className="text-amber-500 italic">
+                              Sin Zona
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4 text-right space-x-2">
+                          <button
+                            onClick={() => abrirModalEditarHab(h)}
+                            className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold"
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleEliminarItem(
+                                h.id,
+                                "habitaciones",
+                                `Hab. ${h.numero}`,
+                              )
+                            }
+                            className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 px-3 py-1.5 rounded-lg text-xs font-bold"
+                          >
+                            🗑️ Borrar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <RenderPaginacion lista={habitaciones} />
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
 
       {/* ========================================================= */}
       {/* PESTAÑA 6: GENERADOR DE ETIQUETAS QR */}
       {/* ========================================================= */}
-      {!cargando && pestaña === "qr" && (
-        <div className="animate-fadeIn">
-          <GeneradorQR />
-        </div>
-      )}
+      {!cargando &&
+        pestaña === "qr" &&
+        tieneAcceso("gestionar_habitaciones") && (
+          <div className="animate-fadeIn">
+            <GeneradorQR />
+          </div>
+        )}
 
       {/* ========================================================= */}
       {/* MODAL 1: FORMULARIO EMPLEADO */}
@@ -1143,13 +1230,43 @@ export default function PanelAdmin({ usuarioActual }) {
                   <select
                     value={rol}
                     onChange={(e) => setRol(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-400 focus:outline-none cursor-pointer"
+                    disabled={edicionId === usuarioActual?.id}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-400 focus:outline-none cursor-pointer disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-800"
                   >
-                    <option value="Camarista">🧹 Camarista</option>
-                    <option value="Recepcion">🖥️ Recepcion</option>
-                    <option value="Mantenimiento">🛠️ Mantenimiento</option>
-                    <option value="Ama de Llaves">🔑 Ama de Llaves</option>
-                    <option value="Administrador">👔 Administrador</option>
+                    {/* El Ama de Llaves, Admin y Superusuario pueden crear Camaristas */}
+                    {(esSuperusuario ||
+                      esAdmin ||
+                      usuarioActual?.rol === "Ama de Llaves") && (
+                      <option value="Camarista">🧹 Camarista</option>
+                    )}
+
+                    {/* Solo Recepcion, Admin y Superusuario pueden crear personal de Recepcion */}
+                    {(esSuperusuario ||
+                      esAdmin ||
+                      usuarioActual?.rol === "Recepcion") && (
+                      <option value="Recepcion">🖥️ Recepcion</option>
+                    )}
+
+                    {/* Solo Mantenimiento, Admin y Superusuario pueden crear personal de Mantenimiento */}
+                    {(esSuperusuario ||
+                      esAdmin ||
+                      usuarioActual?.rol === "Mantenimiento") && (
+                      <option value="Mantenimiento">🛠️ Mantenimiento</option>
+                    )}
+
+                    {/* El Ama de Llaves (para crear supervisoras), Admin y Superusuario pueden crear Amas de Llaves */}
+                    {(esSuperusuario ||
+                      esAdmin ||
+                      usuarioActual?.rol === "Ama de Llaves") && (
+                      <option value="Ama de Llaves">🔑 Ama de Llaves</option>
+                    )}
+
+                    {/* Ocultamos Administrador para los mandos medios */}
+                    {(esAdmin || esSuperusuario) && (
+                      <option value="Administrador">👔 Administrador</option>
+                    )}
+
+                    {/* Ocultamos Superusuario para todos excepto para el Superusuario */}
                     {esSuperusuario && (
                       <option value="Superusuario">🚀 Superusuario</option>
                     )}
@@ -1162,6 +1279,8 @@ export default function PanelAdmin({ usuarioActual }) {
                   <select
                     value={estatusEmp}
                     onChange={(e) => setEstatusEmp(e.target.value)}
+                    // Bloqueamos el estatus si el usuario se está editando a sí mismo
+                    disabled={edicionId === usuarioActual?.id}
                     className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-400 focus:outline-none cursor-pointer"
                   >
                     <option value="Activo">● Activo (Tiene Acceso)</option>
@@ -1186,6 +1305,50 @@ export default function PanelAdmin({ usuarioActual }) {
                   ))}
                 </select>
               </div>
+
+              {/* SECCIÓN DE PERMISOS GRANULARES - OCULTA PARA MANDOS MEDIOS */}
+              {(esSuperusuario || usuarioActual?.rol === "Administrador") && (
+                <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-700">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-3">
+                    Permisos Especiales (Opcional)
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* Filtro Inteligente de Delegación */}
+                    {LISTA_PERMISOS.filter((p) => {
+                      if (esSuperusuario) return true; // El Superusuario puede asignar todo
+                      if (usuarioActual?.rol === "Administrador")
+                        return p.id !== "gestionar_hoteles"; // Admin no toca SaaS
+                      return false; // Nadie más debería llegar aquí, pero por seguridad retornamos falso
+                    }).map((permiso) => (
+                      <label
+                        key={permiso.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                          permisosEmp.includes(permiso.id)
+                            ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-900/30 dark:border-indigo-700"
+                            : "bg-slate-50 border-slate-200 dark:bg-slate-900 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        } ${edicionId === usuarioActual?.id ? "opacity-60 cursor-not-allowed" : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={permisosEmp.includes(permiso.id)}
+                          // Bloqueamos los checkboxes si se están editando a sí mismos
+                          onChange={() =>
+                            edicionId !== usuarioActual?.id &&
+                            togglePermiso(permiso.id)
+                          }
+                          disabled={edicionId === usuarioActual?.id}
+                          className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer disabled:cursor-not-allowed"
+                        />
+                        <span
+                          className={`text-xs font-bold ${permisosEmp.includes(permiso.id) ? "text-indigo-800 dark:text-indigo-300" : "text-slate-600 dark:text-slate-400"}`}
+                        >
+                          {permiso.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-700 mt-6">
                 <button

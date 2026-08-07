@@ -5,20 +5,25 @@ require 'db.php';
 $data = json_decode(file_get_contents("php://input"));
 
 if (isset($data->email) && isset($data->password)) {
-  // 1. Extraemos los datos del usuario, incluyendo su contraseña encriptada
-  $stmt = $pdo->prepare("SELECT id, nombre, primer_apellido, segundo_apellido, rol, hotel_base_id, password_hash FROM usuarios WHERE email = ?");
+  // 1. Agregamos 'permisos' a la consulta SQL
+  $stmt = $pdo->prepare("SELECT id, nombre, primer_apellido, segundo_apellido, rol, hotel_base_id, password_hash, permisos FROM usuarios WHERE email = ?");
   $stmt->execute([$data->email]);
 
-  // Usamos PDO::FETCH_ASSOC para traer un arreglo limpio
   $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  // 2. Verificamos si el correo existe en la base de datos
   if ($user) {
-
-    // 3. Verificamos si la contraseña coincide con el hash encriptado
     if (password_verify($data->password, $user['password_hash'])) {
 
-      // Contraseña correcta: Damos acceso al sistema
+      // 2. Desempaquetamos los permisos JSON
+      $permisos_arreglo = [];
+      if (!empty($user['permisos'])) {
+        $permisos_arreglo = json_decode($user['permisos'], true);
+        if (!is_array($permisos_arreglo)) {
+          $permisos_arreglo = [];
+        }
+      }
+
+      // 3. Enviamos los datos con los permisos incluidos
       echo json_encode([
         'success' => true,
         'usuario' => [
@@ -27,15 +32,14 @@ if (isset($data->email) && isset($data->password)) {
           'primer_apellido' => $user['primer_apellido'],
           'segundo_apellido' => $user['segundo_apellido'] ? $user['segundo_apellido'] : '',
           'rol' => $user['rol'],
-          'hotel_id' => $user['hotel_base_id']
+          'hotel_id' => $user['hotel_base_id'],
+          'permisos' => $permisos_arreglo // Inyectamos los permisos aquí
         ]
       ]);
     } else {
-      // Contraseña incorrecta: Bloqueamos el acceso
       echo json_encode(['success' => false, 'message' => 'Contraseña incorrecta.']);
     }
   } else {
-    // El correo no existe
     echo json_encode(['success' => false, 'message' => 'El correo ingresado no existe en el sistema.']);
   }
 } else {

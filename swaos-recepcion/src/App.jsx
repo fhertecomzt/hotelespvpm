@@ -9,9 +9,11 @@ import MantenimientoView from "./MantenimientoView";
 import PanelAdmin from "./PanelAdmin";
 import DashboardView from "./DashboardView";
 
-
 function App() {
-  const [usuarioActual, setUsuarioActual] = useState(null);
+  const [usuarioActual, setUsuarioActual] = useState(() => {
+    const usuarioGuardado = localStorage.getItem("swaos_usuario");
+    return usuarioGuardado ? JSON.parse(usuarioGuardado) : null;
+  });
 
   // MOTOR DE TEMA: Lee localStorage o arranca en 'light' por defecto para evitar clics fantasma
   const [tema, setTema] = useState(
@@ -44,10 +46,22 @@ function App() {
     }
   };
 
-  const RutaProtegida = ({ children, rolesPermitidos }) => {
+  // 🔴 Agregamos "permisosPermitidos" a las propiedades
+  const RutaProtegida = ({ children, rolesPermitidos, permisosPermitidos }) => {
     if (!usuarioActual) return <Navigate to="/" replace />;
 
-    if (rolesPermitidos && !rolesPermitidos.includes(usuarioActual.rol)) {
+    // Verificamos si tiene el rol
+    const tieneRol =
+      rolesPermitidos && rolesPermitidos.includes(usuarioActual.rol);
+
+    // Verificamos si tiene al menos UN permiso que coincida con los solicitados
+    const tienePermiso =
+      permisosPermitidos &&
+      usuarioActual.permisos &&
+      usuarioActual.permisos.some((p) => permisosPermitidos.includes(p));
+
+    // Si no tiene ni el rol ni el permiso especial, lo bloqueamos
+    if (!tieneRol && !tienePermiso) {
       return (
         <div className="min-h-screen bg-slate-100 dark:bg-slate-900 flex items-center justify-center p-4 transition-colors">
           <div className="bg-white dark:bg-slate-800 border border-red-200 dark:border-red-900/50 p-6 rounded-2xl text-center max-w-sm w-full shadow-2xl">
@@ -56,11 +70,13 @@ function App() {
               Acceso Restringido
             </h3>
             <p className="text-slate-600 dark:text-slate-300 text-sm font-semibold mb-4">
-              Tu rol de "{usuarioActual.rol}" no tiene permisos para ver esta
-              pantalla.
+              Tu nivel de acceso no tiene permisos para ver esta pantalla.
             </p>
             <button
-              onClick={() => setUsuarioActual(null)}
+              onClick={() => {
+                setUsuarioActual(null);
+                localStorage.removeItem("swaos_usuario");
+              }}
               className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl text-sm transition-colors"
             >
               Cerrar Sesión
@@ -120,20 +136,21 @@ function App() {
               </button>
 
               {/* BOTÓN DE DASHBOARD: SOLO ADMIN Y SUPERUSUARIO */}
-              {(usuarioActual.rol === "Administrador" ||
-                usuarioActual.rol === "Superusuario") && (
+
                 <Link
-                  to="/dashboard"
+                  to="/"
+                  title="Volver a mi panel principal"
                   className="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded-lg shadow transition-colors flex items-center gap-1 font-bold"
                 >
-                  <span>📊</span>{" "}
-                  <span className="hidden sm:inline">Dashboard</span>
+                  <span>🏠</span>{" "}
+                  <span className="hidden sm:inline">Inicio</span>
                 </Link>
-              )}
-
-              {/* BOTÓN DE ADMINISTRACIÓN: SOLO ADMIN Y SUPERUSUARIO */}
+            
+              {/* BOTÓN DE ADMINISTRACIÓN: ADMIN, SUPERUSUARIO O PERSONAL CON PERMISOS ESPECIALES */}
               {(usuarioActual.rol === "Administrador" ||
-                usuarioActual.rol === "Superusuario") && (
+                usuarioActual.rol === "Superusuario" ||
+                (usuarioActual.permisos &&
+                  usuarioActual.permisos.length > 0)) && (
                 <Link
                   to="/admin"
                   className="bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/40 px-3 py-1.5 rounded-lg shadow transition-colors flex items-center gap-1 font-bold"
@@ -155,7 +172,10 @@ function App() {
               )}
 
               <button
-                onClick={() => setUsuarioActual(null)}
+                onClick={() => {
+                  setUsuarioActual(null);
+                  localStorage.removeItem("swaos_usuario"); // Borra la sesión física
+                }}
                 className="hover:text-red-400 text-slate-400 transition-colors flex items-center gap-1 ml-1 border-l border-slate-800 pl-3"
               >
                 <span>🚪</span> <span className="hidden md:inline">Salir</span>
@@ -230,6 +250,12 @@ function App() {
             element={
               <RutaProtegida
                 rolesPermitidos={["Administrador", "Superusuario"]}
+                permisosPermitidos={[
+                  "crear_empleado",
+                  "gestionar_hoteles",
+                  "gestionar_zonas",
+                  "gestionar_habitaciones",
+                ]}
               >
                 <PanelAdmin usuarioActual={usuarioActual} />
               </RutaProtegida>

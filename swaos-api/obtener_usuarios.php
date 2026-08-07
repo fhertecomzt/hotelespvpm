@@ -23,8 +23,18 @@ try {
   // Si el hotel_id es 0 o quien consulta es Superusuario/Administrador en el Panel, enviamos todo el catálogo
   $filtro = ($hotel_id <= 0 || $rol_solicitante === 'Superusuario' || $rol_solicitante === 'Administrador') ? "" : "WHERE hotel_base_id = $hotel_id";
 
-  $stmt = $pdo->query("SELECT id, nombre, primer_apellido, segundo_apellido, email, rol, hotel_base_id, COALESCE(estatus, 'Activo') as estatus FROM usuarios $filtro ORDER BY id ASC");
+  $stmt = $pdo->query("SELECT id, nombre, primer_apellido, segundo_apellido, email, rol, hotel_base_id, COALESCE(estatus, 'Activo') as estatus, permisos FROM usuarios $filtro ORDER BY id ASC");
   $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+  // Ejemplo de cómo debe quedar el procesamiento dentro de tu ciclo en obtener_usuarios.php:
+  foreach ($usuarios as &$user) {
+    if (!empty($user['permisos'])) {
+      $user['permisos'] = json_decode($user['permisos'], true);
+      if (!is_array($user['permisos'])) $user['permisos'] = [];
+    } else {
+      $user['permisos'] = [];
+    }
+  }
 
   echo json_encode([
     'success' => true,
