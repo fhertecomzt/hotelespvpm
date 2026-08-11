@@ -22,8 +22,14 @@ export default function DashboardView({ usuarioActual }) {
   const cargarMetrics = (silencioso = false) => {
     if (!silencioso) setCargando(true);
     const idConsulta = pestañaSaaS ? 0 : hotelActivo;
+    const token = localStorage.getItem("swaos_token");
     fetch(
       `${API_URL}/obtener_dashboard.php?hotel_id=${idConsulta}&rol=${usuarioActual?.rol || ""}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`, // Lo enviamos al PHP
+        },
+      },
     )
       .then((res) => res.json())
       .then((res) => {
@@ -69,8 +75,14 @@ export default function DashboardView({ usuarioActual }) {
     try {
       // 1. Pedimos los datos al servidor usando el estado dinámico del Dashboard
       const hotelActivoId = hotelActivo;
+      const token = localStorage.getItem("swaos_token"); // <-- 1. Recuperar el token
       const respuesta = await fetch(
         `${API_URL}/generar_reportes.php?tipo=${tipoReporte}&rango=${rangoFecha}&hotel_id=${hotelActivoId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // <-- 2. Enviar el gafete al servidor
+          },
+        },
       );
       const res = await respuesta.json();
 

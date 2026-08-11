@@ -21,6 +21,7 @@ export default function CamaristaView({ usuarioActual }) {
   const [subiendoFoto, setSubiendoFoto] = useState(null);
   const [modalDano, setModalDano] = useState(null);
   const [habitacionAEscanear, setHabitacionAEscanear] = useState(null);
+  const token = localStorage.getItem("swaos_token"); // Sacamos el token
 
   const handleValidarPresencia = (textoDetectado) => {
     if (textoDetectado) {
@@ -65,7 +66,11 @@ export default function CamaristaView({ usuarioActual }) {
       setCargando(true);
     }
 
-    fetch(`${API_URL}/obtener_tareas_camarista.php?usuario_id=${id}`)
+    fetch(`${API_URL}/obtener_tareas_camarista.php?usuario_id=${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`, // Lo enviamos al PHP
+      },
+    })
       .then((res) => res.json())
       .then((fetchedData) => {
         setData(fetchedData);
@@ -108,9 +113,12 @@ export default function CamaristaView({ usuarioActual }) {
     // 2. Petición al servidor (Corregida sin la letra "h")
     fetch(`${API_URL}/actualizar_estatus.php`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
-        habitacionId: habitacionId, // 🔴 Corregido: Se envía el número puro
+        habitacionId: habitacionId, // Se envía el número puro
         nuevoEstatus: nuevoEstatus,
         usuario_id: usuarioActual.id, // Añadimos el ID por si la bitácora lo requiere
       }),
@@ -144,6 +152,10 @@ export default function CamaristaView({ usuarioActual }) {
 
       const res = await fetch(`${API_URL}/guardar_evidencia.php`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: formData,
       });
       const respuesta = await res.json();

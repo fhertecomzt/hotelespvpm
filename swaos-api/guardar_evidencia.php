@@ -1,6 +1,11 @@
 <?php
 // guardar_evidencia.php
-require 'db.php';
+ini_set('display_errors', 0);
+error_reporting(0);
+
+require_once 'auth.php';
+require_once 'db.php';
+header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['foto'])) {
   $habitacion_id = isset($_POST['habitacion_id']) ? intval($_POST['habitacion_id']) : 0;

@@ -40,6 +40,9 @@ export default function ModalReporteDano({ habitacionId, usuarioId, onClose }) {
 
       const res = await fetch(`${API_URL}/reportar_dano.php`, {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: formData,
       });
       const respuesta = await res.json();

@@ -1,7 +1,11 @@
 <?php
 // exportar_reporte.php
+ini_set('display_errors', 0);
 error_reporting(0);
-require 'db.php';
+
+require_once 'auth.php';
+require_once 'db.php';
+header('Content-Type: application/json; charset=utf-8');
 
 $hotel_id = isset($_GET['hotel_id']) ? intval($_GET['hotel_id']) : 1;
 $fecha = date('Y-m-d_H-i');

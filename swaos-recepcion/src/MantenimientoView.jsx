@@ -16,10 +16,15 @@ export default function MantenimientoView({ usuarioActual }) {
   const [notasResolucion, setNotasResolucion] = useState("");
   const [fotoResolucion, setFotoResolucion] = useState(null);
   const [guardando, setGuardando] = useState(false);
+  const token = localStorage.getItem("swaos_token"); // Sacamos el token
 
   const cargarReportes = (silencioso = false) => {
     if (!silencioso) setCargando(true);
-    fetch(`${API_URL}/obtener_reportes_mantenimiento.php`)
+    fetch(`${API_URL}/obtener_reportes_mantenimiento.php`, {
+      headers: {
+        Authorization: `Bearer ${token}`, // Lo enviamos al PHP
+      },
+    })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
@@ -83,7 +88,10 @@ export default function MantenimientoView({ usuarioActual }) {
   const cambiarEstatus = (id, nuevoEstatus) => {
     fetch(`${API_URL}/actualizar_estatus_dano.php`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         reporte_id: id,
         estatus: nuevoEstatus,
@@ -125,6 +133,9 @@ export default function MantenimientoView({ usuarioActual }) {
 
       const res = await fetch(`${API_URL}/actualizar_estatus_dano.php`, {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: formData,
       });
       const respuesta = await res.json();

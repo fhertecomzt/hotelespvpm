@@ -23,5 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 
-#dbs
-../swaos-api/db.php
+# Archivos de configuración y secretos
+../swaos-api/config_keys.php

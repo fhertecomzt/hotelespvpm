@@ -25,10 +25,11 @@ export default function Login({ setUsuarioActual }) {
       .then((res) => {
         setCargando(false);
         if (res.success) {
-          //Guardamos una copia en el disco duro del navegador
+          // Guardamos el usuario
           localStorage.setItem("swaos_usuario", JSON.stringify(res.usuario));
-
-          // Guardar estado del usuario a nivel global
+          // NUEVO: Guardamos el token
+          localStorage.setItem("swaos_token", res.token);
+          //Usuario global
           setUsuarioActual(res.usuario);
 
           // Redirección inteligente según el rol del empleado

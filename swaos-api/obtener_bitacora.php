@@ -2,6 +2,9 @@
 // swaos-api/obtener_bitacora.php
 ini_set('display_errors', 0);
 error_reporting(0);
+
+require_once 'auth.php';
+require_once 'db.php';
 header('Content-Type: application/json; charset=utf-8');
 
 // --- AGREGAR ESTAS 3 LÍNEAS PARA MATAR EL CACHÉ ---

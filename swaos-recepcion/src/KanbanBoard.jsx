@@ -45,11 +45,16 @@ export default function KanbanBoard({ usuarioActual }) {
   const [descDano, setDescDano] = useState("");
   const [fotoDano, setFotoDano] = useState(null);
   const [enviandoReporte, setEnviandoReporte] = useState(false);
+  const token = localStorage.getItem("swaos_token"); // Sacamos el token
 
   const esRecepcion = usuarioActual?.rol === "Recepcion";
 
   const cargarTablero = (silencioso = false) => {
-    fetch(`${API_URL}/obtener_tablero.php?hotel_id=${hotelActivo}`)
+    fetch(`${API_URL}/obtener_tablero.php?hotel_id=${hotelActivo}`, {
+      headers: {
+        Authorization: `Bearer ${token}`, // Lo enviamos al PHP
+      },
+    })
       .then((res) => res.json())
       .then((fetchedData) => {
         if (fetchedData.success || fetchedData.columnas) {
@@ -96,7 +101,10 @@ export default function KanbanBoard({ usuarioActual }) {
 
     fetch(`${API_URL}/asignar_camarista.php`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ zonaId: idRealZona, usuarioId: nuevoUsuarioId }),
     })
       .then((r) => r.json())
@@ -106,53 +114,56 @@ export default function KanbanBoard({ usuarioActual }) {
       .catch((err) => console.error("Error:", err));
   };
 
-const enviarReporteDano = async () => {
-  if (!modalDano) return;
+  const enviarReporteDano = async () => {
+    if (!modalDano) return;
 
-  // 🔒 VALIDACIÓN DE TEXTO VACÍO: Evita reportes en blanco o de puros espacios
-  if (!descDano || descDano.trim() === "") {
-    alertaToast(
-      "error",
-      "⚠️ Por favor describe cuál es la falla antes de enviar.",
-    );
-    return;
-  }
-
-  setEnviandoReporte(true);
-
-  try {
-    const formData = new FormData();
-    formData.append("habitacion_id", modalDano);
-    formData.append("usuario_id", usuarioActual?.id || 4);
-    formData.append("tipo_dano", tipoDano);
-    formData.append("descripcion", descDano);
-
-    if (fotoDano) {
-      const blobComprimido = await comprimirImagen(fotoDano);
-      formData.append("foto", blobComprimido, `dano_rec_${modalDano}.webp`);
+    // 🔒 VALIDACIÓN DE TEXTO VACÍO: Evita reportes en blanco o de puros espacios
+    if (!descDano || descDano.trim() === "") {
+      alertaToast(
+        "error",
+        "⚠️ Por favor describe cuál es la falla antes de enviar.",
+      );
+      return;
     }
 
-    const res = await fetch(`${API_URL}/reportar_dano.php`, {
-      method: "POST",
-      body: formData,
-    });
-    const respuesta = await res.json();
+    setEnviandoReporte(true);
 
-    if (respuesta.success) {
-      alertaToast("success", "Incidencia enviada a Mantenimiento");
-      setModalDano(null);
-      setTipoDano(TIPOS_DANO[0]);
-      setDescDano("");
-      setFotoDano(null);
-    } else {
-      alertaToast("error", "Error: " + respuesta.message);
+    try {
+      const formData = new FormData();
+      formData.append("habitacion_id", modalDano);
+      formData.append("usuario_id", usuarioActual?.id || 4);
+      formData.append("tipo_dano", tipoDano);
+      formData.append("descripcion", descDano);
+
+      if (fotoDano) {
+        const blobComprimido = await comprimirImagen(fotoDano);
+        formData.append("foto", blobComprimido, `dano_rec_${modalDano}.webp`);
+      }
+
+      const res = await fetch(`${API_URL}/reportar_dano.php`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      const respuesta = await res.json();
+
+      if (respuesta.success) {
+        alertaToast("success", "Incidencia enviada a Mantenimiento");
+        setModalDano(null);
+        setTipoDano(TIPOS_DANO[0]);
+        setDescDano("");
+        setFotoDano(null);
+      } else {
+        alertaToast("error", "Error: " + respuesta.message);
+      }
+    } catch (err) {
+      alertaToast("error", "Error de red al reportar");
+    } finally {
+      setEnviandoReporte(false);
     }
-  } catch (err) {
-    alertaToast("error", "Error de red al reportar");
-  } finally {
-    setEnviandoReporte(false);
-  }
-};
+  };
 
   const onDragEnd = (result) => {
     const { destination, source, draggableId } = result;
@@ -190,7 +201,10 @@ const enviarReporteDano = async () => {
 
         fetch(`${API_URL}/actualizar_zona.php`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({
             habitacionId: idRealHab,
             nuevaZonaId: idRealZona,
@@ -207,7 +221,10 @@ const enviarReporteDano = async () => {
 
       fetch(`${API_URL}/actualizar_estatus.php`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           habitacionId: idRealHab,
           nuevoEstatus: nuevoEstatus,

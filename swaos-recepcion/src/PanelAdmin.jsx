@@ -38,6 +38,8 @@ export default function PanelAdmin({ usuarioActual }) {
     return "";
   });
 
+  const token = localStorage.getItem("swaos_token");
+
   // ESTADOS DE LISTADOS DATOS
   const [usuarios, setUsuarios] = useState([]);
   const [hoteles, setHoteles] = useState([]);
@@ -205,31 +207,35 @@ export default function PanelAdmin({ usuarioActual }) {
     );
   };
 
-  const cargarTodo = () => {
-    setCargando(true);
-    // Pasamos hotel_id = 0 para que tanto Superusuario como Administrador carguen todo el ecosistema y no queden tablas vacías
-    const urlUser = `${API_URL}/obtener_usuarios.php?hotel_id=0&rol_solicitante=${usuarioActual?.rol || ""}`;
-    const urlInv = `${API_URL}/gestion_inventario.php?accion=leer_todo&hotel_id=0`;
+ const cargarTodo = () => {
+   setCargando(true);
+   const urlUser = `${API_URL}/obtener_usuarios.php?hotel_id=0&rol_solicitante=${usuarioActual?.rol || ""}`;
+   const urlInv = `${API_URL}/gestion_inventario.php?accion=leer_todo&hotel_id=0`;
 
-    Promise.all([
-      fetch(urlUser).then((r) => r.json()),
-      fetch(urlInv).then((r) => r.json()),
-    ])
-      .then(([dataUser, dataInv]) => {
-        if (dataUser.success) setUsuarios(dataUser.usuarios || []);
-        if (dataInv.success) {
-          setHoteles(dataInv.hoteles || []);
-          setTipos(dataInv.tipos_habitacion || []);
-          setZonas(dataInv.zonas || []);
-          setHabitaciones(dataInv.habitaciones || []);
-        }
-        setCargando(false);
-      })
-      .catch((err) => {
-        console.error("Error al cargar plataforma:", err);
-        setCargando(false);
-      });
-  };
+   // 🔴 CREAMOS LAS OPCIONES CON EL TOKEN
+   const opcionesAuth = {
+     headers: { Authorization: `Bearer ${token}` },
+   };
+
+   Promise.all([
+     fetch(urlUser, opcionesAuth).then((r) => r.json()), // 🔴 PASAMOS LAS OPCIONES AQUÍ
+     fetch(urlInv, opcionesAuth).then((r) => r.json()), // 🔴 Y AQUÍ
+   ])
+     .then(([dataUser, dataInv]) => {
+       if (dataUser.success) setUsuarios(dataUser.usuarios || []);
+       if (dataInv.success) {
+         setHoteles(dataInv.hoteles || []);
+         setTipos(dataInv.tipos_habitacion || []);
+         setZonas(dataInv.zonas || []);
+         setHabitaciones(dataInv.habitaciones || []);
+       }
+       setCargando(false);
+     })
+     .catch((err) => {
+       console.error("Error al cargar plataforma:", err);
+       setCargando(false);
+     });
+ };
 
   // 1. EFECTO PARA CARGAR DATOS
   useEffect(() => {
@@ -282,7 +288,10 @@ export default function PanelAdmin({ usuarioActual }) {
     setGuardando(true);
     fetch(`${API_URL}/guardar_usuario.php`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         id: edicionId,
         nombre,
@@ -323,7 +332,10 @@ export default function PanelAdmin({ usuarioActual }) {
     setGuardando(true);
     fetch(`${API_URL}/gestion_inventario.php?accion=guardar_hotel`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         id: hotelEditId,
         nombre: nombreHotel,
@@ -353,7 +365,10 @@ export default function PanelAdmin({ usuarioActual }) {
     setGuardando(true);
     fetch(`${API_URL}/gestion_inventario.php?accion=guardar_tipo`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         id: tipoEditId,
         hotel_id: hotelIdTipo,
@@ -382,7 +397,10 @@ export default function PanelAdmin({ usuarioActual }) {
     setGuardando(true);
     fetch(`${API_URL}/gestion_inventario.php?accion=guardar_zona`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         id: zonaEditId,
         hotel_id: hotelIdZona,
@@ -434,7 +452,10 @@ export default function PanelAdmin({ usuarioActual }) {
     setGuardando(true);
     fetch(`${API_URL}/gestion_inventario.php?accion=guardar_habitacion`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         id: habEditId,
         hotel_id: hotelIdHab,
@@ -491,7 +512,10 @@ export default function PanelAdmin({ usuarioActual }) {
 
     fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(body),
     })
       .then((r) => r.json())

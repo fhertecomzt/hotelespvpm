@@ -6,6 +6,7 @@ export default function BitacoraView({ usuarioActual }) {
   const [bitacora, setBitacora] = useState([]);
   const [hotelesLista, setHotelesLista] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const token = localStorage.getItem("swaos_token"); // Sacamos el token
 
   // Filtros en memoria
   const [hotelActivo, setHotelActivo] = useState(0); // 0 = Todos
@@ -13,7 +14,11 @@ export default function BitacoraView({ usuarioActual }) {
 
   const cargarBitacora = (silencioso = false) => {
     if (!silencioso) setCargando(true);
-    fetch(`${API_URL}/obtener_bitacora.php`)
+    fetch(`${API_URL}/obtener_bitacora.php`, {
+      headers: {
+        Authorization: `Bearer ${token}`, // Lo enviamos al PHP
+      },
+    })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {

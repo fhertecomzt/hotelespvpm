@@ -2,8 +2,10 @@
 // guardar_usuario.php
 ini_set('display_errors', 0);
 error_reporting(0);
+
+require_once 'auth.php';
+require_once 'db.php';
 header('Content-Type: application/json; charset=utf-8');
-require 'db.php';
 
 try {
   // Autocuración 1: Asegurar que exista la columna estatus

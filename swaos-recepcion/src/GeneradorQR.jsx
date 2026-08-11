@@ -7,10 +7,15 @@ export default function GeneradorQR() {
   const [data, setData] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [hotelId, setHotelId] = useState(1);
+  const token = localStorage.getItem("swaos_token"); // Sacamos el token
 
   useEffect(() => {
     setCargando(true);
-    fetch(`${API_URL}/obtener_habitaciones_qr.php?hotel_id=${hotelId}`)
+    fetch(`${API_URL}/obtener_habitaciones_qr.php?hotel_id=${hotelId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`, // Lo enviamos al PHP
+      },
+    })
       .then((res) => res.json())
       .then((fetchedData) => {
         setData(fetchedData);
