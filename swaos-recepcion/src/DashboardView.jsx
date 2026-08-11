@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import BitacoraView from "./BitacoraView";
+import * as XLSX from "xlsx";
+import { alertaToast } from "./utils";
 
 const API_URL = "/sistema/swaos-api";
 
@@ -10,6 +12,12 @@ export default function DashboardView({ usuarioActual }) {
   const [pestañaSaaS, setPestañaSaaS] = useState(false);
 
   const esSuperusuario = usuarioActual?.rol === "Superusuario";
+
+  // ESTADOS PARA EL MÓDULO DE REPORTES GERENCIALES
+  const [modalReportes, setModalReportes] = useState(false);
+  const [tipoReporte, setTipoReporte] = useState("productividad"); // Por defecto
+  const [rangoFecha, setRangoFecha] = useState("hoy");
+  const [descargandoReporte, setDescargandoReporte] = useState(false);
 
   const cargarMetrics = (silencioso = false) => {
     if (!silencioso) setCargando(true);
@@ -55,6 +63,58 @@ export default function DashboardView({ usuarioActual }) {
   ) || { nombre: `Hotel ${hotelActivo}`, alias: `Hotel ${hotelActivo}` };
   const textoHotelHeader = `${hotelObjeto.nombre} (${hotelObjeto.alias})`;
 
+  // FUNCIÓN PARA DESCARGAR EL REPORTE EN EXCEL
+  const generarReporteExcel = async () => {
+    setDescargandoReporte(true);
+    try {
+      // 1. Pedimos los datos al servidor usando el estado dinámico del Dashboard
+      const hotelActivoId = hotelActivo;
+      const respuesta = await fetch(
+        `${API_URL}/generar_reportes.php?tipo=${tipoReporte}&rango=${rangoFecha}&hotel_id=${hotelActivoId}`,
+      );
+      const res = await respuesta.json();
+
+      if (!res.success) {
+        alertaToast("error", res.message || "Error al obtener datos");
+        setDescargandoReporte(false);
+        return;
+      }
+
+      if (res.data.length === 0) {
+        alertaToast("error", "No hay registros para este periodo");
+        setDescargandoReporte(false);
+        return;
+      }
+
+      // 2. Transformamos el JSON en una hoja de Excel
+      const hojaTrabajo = XLSX.utils.json_to_sheet(res.data);
+
+      // 3. Opcional: Auto-ajustar el ancho de las columnas (Estética Premium)
+      const anchosColumnas = Object.keys(res.data[0]).map((clave) => ({
+        wch: Math.max(clave.length, 15), // Ancho mínimo de 15 caracteres
+      }));
+      hojaTrabajo["!cols"] = anchosColumnas;
+
+      // 4. Creamos el libro de Excel y le pegamos la hoja
+      const libroTrabajo = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(libroTrabajo, hojaTrabajo, "Reporte SLA");
+
+      // 5. Generamos el nombre del archivo dinámico y lo descargamos
+      const fechaActual = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(
+        libroTrabajo,
+        `SWAOS_Reporte_${tipoReporte.toUpperCase()}_${fechaActual}.xlsx`,
+      );
+
+      setDescargandoReporte(false);
+      setModalReportes(false); // Cerramos el modal tras la descarga exitosa
+    } catch (error) {
+      console.error(error);
+      alertaToast("error", "Error de red al generar el Excel");
+      setDescargandoReporte(false);
+    }
+  };
+
   return (
     <div className="bg-slate-100 dark:bg-slate-900 min-h-screen font-sans text-slate-800 dark:text-slate-100 p-4 md:p-8 pb-20 transition-colors duration-300">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -66,7 +126,7 @@ export default function DashboardView({ usuarioActual }) {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl md:text-2xl font-black text-slate-800 dark:text-white tracking-wide">
-                📊  Operación{" "}
+                📊 Operación{" "}
                 {pestañaSaaS && (
                   <span className="text-sm bg-purple-600 text-white px-3 py-1 rounded-full uppercase tracking-widest font-black">
                     SaaS Global
@@ -138,10 +198,10 @@ export default function DashboardView({ usuarioActual }) {
             {/* 3. BOTÓN EXCEL */}
             {!pestañaSaaS && pestañaGerencial === "metricas" && (
               <button
-                onClick={descargarExcel}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2.5 rounded-2xl text-xs shadow-md transition-all flex items-center gap-2"
+                onClick={() => setModalReportes(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
               >
-                <span>📥</span> Descargar Excel
+                <span>📊</span> Reportes
               </button>
             )}
 
@@ -472,6 +532,127 @@ export default function DashboardView({ usuarioActual }) {
                     })}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* MODAL: CENTRO DE REPORTES GERENCIALES */}
+        {modalReportes && (
+          <div
+            onClick={() => setModalReportes(false)}
+            className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-slate-200 dark:border-slate-700"
+            >
+              <h3 className="text-xl font-black text-slate-800 dark:text-white border-b border-slate-100 dark:border-slate-700 pb-3 mb-4 flex items-center gap-2">
+                <span>📈</span> Exportar Inteligencia de Negocios
+              </h3>
+
+              <div className="space-y-5">
+                {/* SELECCIÓN DE REPORTE */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-2">
+                    1. Selecciona el tipo de reporte
+                  </label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <label
+                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${tipoReporte === "productividad" ? "bg-emerald-50 border-emerald-500 dark:bg-emerald-900/20" : "bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:border-slate-700"}`}
+                    >
+                      <input
+                        type="radio"
+                        name="reporte"
+                        checked={tipoReporte === "productividad"}
+                        onChange={() => setTipoReporte("productividad")}
+                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <div>
+                        <span className="block text-sm font-bold text-slate-800 dark:text-white">
+                          ⏱️ Productividad y Tiempos (SLA)
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          Mide el rendimiento del personal y cuellos de botella.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label
+                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${tipoReporte === "mantenimiento" ? "bg-emerald-50 border-emerald-500 dark:bg-emerald-900/20" : "bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:border-slate-700"}`}
+                    >
+                      <input
+                        type="radio"
+                        name="reporte"
+                        checked={tipoReporte === "mantenimiento"}
+                        onChange={() => setTipoReporte("mantenimiento")}
+                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <div>
+                        <span className="block text-sm font-bold text-slate-800 dark:text-white">
+                          🛠️ Incidencias de Mantenimiento
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          Fallas reportadas, tiempos de respuesta y técnicos.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label
+                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${tipoReporte === "cierre" ? "bg-emerald-50 border-emerald-500 dark:bg-emerald-900/20" : "bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:border-slate-700"}`}
+                    >
+                      <input
+                        type="radio"
+                        name="reporte"
+                        checked={tipoReporte === "cierre"}
+                        onChange={() => setTipoReporte("cierre")}
+                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <div>
+                        <span className="block text-sm font-bold text-slate-800 dark:text-white">
+                          📋 Cierre de Turno (Auditoría)
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          Estatus final del inventario al terminar el día.
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* SELECCIÓN DE PERIODO */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-2">
+                    2. Rango de Fechas
+                  </label>
+                  <select
+                    value={rangoFecha}
+                    onChange={(e) => setRangoFecha(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="hoy">Operación de Hoy</option>
+                    <option value="ayer">Operación de Ayer</option>
+                    <option value="semana">Esta Semana (Lun - Dom)</option>
+                    <option value="mes">Este Mes</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-5 mt-4 border-t border-slate-100 dark:border-slate-700">
+                <button
+                  onClick={() => setModalReportes(false)}
+                  className="flex-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-600 dark:text-slate-200 font-bold py-3 rounded-xl transition-colors text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={generarReporteExcel}
+                  disabled={descargandoReporte}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md transition-colors disabled:opacity-50 text-sm flex justify-center items-center gap-2"
+                >
+                  {descargandoReporte
+                    ? "Generando..."
+                    : "Generar Archivo .xlsx"}
+                </button>
               </div>
             </div>
           </div>
