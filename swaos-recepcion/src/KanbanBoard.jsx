@@ -65,6 +65,12 @@ export default function KanbanBoard({ usuarioActual }) {
   };
 
   useEffect(() => {
+    document.title = "SWAOS | Asignación de limpieza";
+    const favicon = document.getElementById("favicon");
+    if (favicon) favicon.href = "/icono-recepcion.ico";
+  }, []);
+
+  useEffect(() => {
     if (!esRecepcion) {
       setVista("zonas");
     }
@@ -300,7 +306,7 @@ export default function KanbanBoard({ usuarioActual }) {
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-white">
               {esRecepcion
-                ? "Torre de Control - Recepción"
+                ? "Rol de limpieza"
                 : "Gestión Operativa y Asignaciones"}
             </h1>
             <span className="text-xs font-black uppercase tracking-wider px-3 py-1 rounded-lg text-white shadow-sm bg-indigo-600 shrink-0">

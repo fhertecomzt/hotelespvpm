@@ -42,6 +42,12 @@ export default function MantenimientoView({ usuarioActual }) {
   };
 
   useEffect(() => {
+    document.title = "SWAOS | Mantenimiento";
+    const favicon = document.getElementById("favicon");
+    if (favicon) favicon.href = "/icono-manto.ico";
+  }, []);
+
+  useEffect(() => {
     cargarReportes(false);
     const intervalo = setInterval(() => cargarReportes(true), 10000);
     return () => clearInterval(intervalo);

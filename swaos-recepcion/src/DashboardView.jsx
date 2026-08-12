@@ -41,6 +41,13 @@ export default function DashboardView({ usuarioActual }) {
         if (!silencioso) setCargando(false);
       });
   };
+
+  useEffect(() => {
+    document.title = "SWAOS | Control operativo";
+    const favicon = document.getElementById("favicon");
+    if (favicon) favicon.href = "/icono-recepcion.ico";
+  }, []);
+
   const [pestañaGerencial, setPestañaGerencial] = useState("metricas"); // 'metricas' o 'auditoria'
 
   useEffect(() => {
@@ -138,7 +145,7 @@ export default function DashboardView({ usuarioActual }) {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl md:text-2xl font-black text-slate-800 dark:text-white tracking-wide">
-                📊 Operación{" "}
+                📊 Control Operativo{" "}
                 {pestañaSaaS && (
                   <span className="text-sm bg-purple-600 text-white px-3 py-1 rounded-full uppercase tracking-widest font-black">
                     SaaS Global
@@ -559,7 +566,7 @@ export default function DashboardView({ usuarioActual }) {
               className="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-slate-200 dark:border-slate-700"
             >
               <h3 className="text-xl font-black text-slate-800 dark:text-white border-b border-slate-100 dark:border-slate-700 pb-3 mb-4 flex items-center gap-2">
-                <span>📈</span> Exportar Inteligencia de Negocios
+                <span>📈</span> Exportar reportes
               </h3>
 
               <div className="space-y-5">

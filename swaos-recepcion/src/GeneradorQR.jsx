@@ -10,6 +10,12 @@ export default function GeneradorQR() {
   const token = localStorage.getItem("swaos_token"); // Sacamos el token
 
   useEffect(() => {
+    document.title = "SWAOS | Generador de Qr";
+    const favicon = document.getElementById("favicon");
+    if (favicon) favicon.href = "/icono-genqr.ico";
+  }, []);
+
+  useEffect(() => {
     setCargando(true);
     fetch(`${API_URL}/obtener_habitaciones_qr.php?hotel_id=${hotelId}`, {
       headers: {

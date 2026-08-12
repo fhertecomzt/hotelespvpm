@@ -87,6 +87,12 @@ export default function CamaristaView({ usuarioActual }) {
   };
 
   useEffect(() => {
+    document.title = `SWAOS | Camarista: ${usuarioActual?.nombre || ""}`;
+    const favicon = document.getElementById("favicon");
+    if (favicon) favicon.href = "/icono-limpieza.ico";
+  }, [usuarioActual]);
+
+  useEffect(() => {
     if (usuarioActual?.id) {
       // 1. Primera carga: muestra el spinner normalmente
       cargarTareas(usuarioActual.id, false);

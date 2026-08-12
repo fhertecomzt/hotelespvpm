@@ -207,35 +207,35 @@ export default function PanelAdmin({ usuarioActual }) {
     );
   };
 
- const cargarTodo = () => {
-   setCargando(true);
-   const urlUser = `${API_URL}/obtener_usuarios.php?hotel_id=0&rol_solicitante=${usuarioActual?.rol || ""}`;
-   const urlInv = `${API_URL}/gestion_inventario.php?accion=leer_todo&hotel_id=0`;
+  const cargarTodo = () => {
+    setCargando(true);
+    const urlUser = `${API_URL}/obtener_usuarios.php?hotel_id=0&rol_solicitante=${usuarioActual?.rol || ""}`;
+    const urlInv = `${API_URL}/gestion_inventario.php?accion=leer_todo&hotel_id=0`;
 
-   // 🔴 CREAMOS LAS OPCIONES CON EL TOKEN
-   const opcionesAuth = {
-     headers: { Authorization: `Bearer ${token}` },
-   };
+    // 🔴 CREAMOS LAS OPCIONES CON EL TOKEN
+    const opcionesAuth = {
+      headers: { Authorization: `Bearer ${token}` },
+    };
 
-   Promise.all([
-     fetch(urlUser, opcionesAuth).then((r) => r.json()), // 🔴 PASAMOS LAS OPCIONES AQUÍ
-     fetch(urlInv, opcionesAuth).then((r) => r.json()), // 🔴 Y AQUÍ
-   ])
-     .then(([dataUser, dataInv]) => {
-       if (dataUser.success) setUsuarios(dataUser.usuarios || []);
-       if (dataInv.success) {
-         setHoteles(dataInv.hoteles || []);
-         setTipos(dataInv.tipos_habitacion || []);
-         setZonas(dataInv.zonas || []);
-         setHabitaciones(dataInv.habitaciones || []);
-       }
-       setCargando(false);
-     })
-     .catch((err) => {
-       console.error("Error al cargar plataforma:", err);
-       setCargando(false);
-     });
- };
+    Promise.all([
+      fetch(urlUser, opcionesAuth).then((r) => r.json()), // 🔴 PASAMOS LAS OPCIONES AQUÍ
+      fetch(urlInv, opcionesAuth).then((r) => r.json()), // 🔴 Y AQUÍ
+    ])
+      .then(([dataUser, dataInv]) => {
+        if (dataUser.success) setUsuarios(dataUser.usuarios || []);
+        if (dataInv.success) {
+          setHoteles(dataInv.hoteles || []);
+          setTipos(dataInv.tipos_habitacion || []);
+          setZonas(dataInv.zonas || []);
+          setHabitaciones(dataInv.habitaciones || []);
+        }
+        setCargando(false);
+      })
+      .catch((err) => {
+        console.error("Error al cargar plataforma:", err);
+        setCargando(false);
+      });
+  };
 
   // 1. EFECTO PARA CARGAR DATOS
   useEffect(() => {
@@ -251,6 +251,17 @@ export default function PanelAdmin({ usuarioActual }) {
       }, 100);
     }
   }, [modalFormulario, modalTipo, modalZona, modalHab, modalHotel]);
+
+  // 3. EFECTO PARA PERSONALIZAR LA PESTAÑA DEL NAVEGADOR
+  useEffect(() => {
+    document.title = esSuperusuario
+      ? "SWAOS | Comando SaaS"
+      : "SWAOS | Panel Administrativo";
+
+    // Si no tienes favicons distintos aún, puedes borrar las siguientes dos líneas
+    const favicon = document.getElementById("favicon");
+    if (favicon) favicon.href = "/vite.svg";
+  }, [esSuperusuario]);
 
   // ==========================================
   // FUNCIONES PARA PERSONAL

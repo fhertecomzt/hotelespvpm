@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const API_URL = "/sistema/swaos-api";
@@ -50,6 +50,13 @@ export default function Login({ setUsuarioActual }) {
         console.error(err);
       });
   };
+
+  useEffect(() => {
+    document.title = "SWAOS | Iniciar Sesión";
+    const favicon = document.getElementById("favicon");
+    // Opcional: Si tienes un icono especial para el login en tu carpeta public
+    if (favicon) favicon.href = "public/favicon.svg";
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
