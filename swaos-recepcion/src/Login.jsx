@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const API_URL = "/sistema/swaos-api";
 
@@ -59,7 +59,8 @@ export default function Login({ setUsuarioActual }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+    // 🔴 1. Agrega la clase 'relative' a este contenedor principal
+    <div className="relative min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-black text-slate-800 tracking-tight">
           SWAOS
@@ -121,6 +122,15 @@ export default function Login({ setUsuarioActual }) {
             </div>
           </form>
         </div>
+      </div>
+      {/* 🔴 2. Agrega este bloque al final, justo antes de cerrar el div principal */}
+      <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8">
+        <Link
+          to="/privacidad"
+          className="text-xs sm:text-sm text-slate-400 hover:text-indigo-600 font-bold transition-colors bg-white/50 px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm hover:shadow"
+        >
+          Aviso de Privacidad
+        </Link>
       </div>
     </div>
   );

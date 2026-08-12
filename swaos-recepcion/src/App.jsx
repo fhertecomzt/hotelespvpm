@@ -8,6 +8,7 @@ import EscanerQR from "./EscanerQR";
 import MantenimientoView from "./MantenimientoView";
 import PanelAdmin from "./PanelAdmin";
 import DashboardView from "./DashboardView";
+import PrivacidadView from "./PrivacidadView";
 
 function App() {
   const [usuarioActual, setUsuarioActual] = useState(() => {
@@ -46,7 +47,7 @@ function App() {
     }
   };
 
-  // 🔴 Agregamos "permisosPermitidos" a las propiedades
+  // Agregamos "permisosPermitidos" a las propiedades
   const RutaProtegida = ({ children, rolesPermitidos, permisosPermitidos }) => {
     if (!usuarioActual) return <Navigate to="/" replace />;
 
@@ -137,15 +138,14 @@ function App() {
 
               {/* BOTÓN DE DASHBOARD: SOLO ADMIN Y SUPERUSUARIO */}
 
-                <Link
-                  to="/"
-                  title="Volver a mi panel principal"
-                  className="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded-lg shadow transition-colors flex items-center gap-1 font-bold"
-                >
-                  <span>🏠</span>{" "}
-                  <span className="hidden sm:inline">Inicio</span>
-                </Link>
-            
+              <Link
+                to="/"
+                title="Volver a mi panel principal"
+                className="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded-lg shadow transition-colors flex items-center gap-1 font-bold"
+              >
+                <span>🏠</span> <span className="hidden sm:inline">Inicio</span>
+              </Link>
+
               {/* BOTÓN DE ADMINISTRACIÓN: ADMIN, SUPERUSUARIO O PERSONAL CON PERMISOS ESPECIALES */}
               {(usuarioActual.rol === "Administrador" ||
                 usuarioActual.rol === "Superusuario" ||
@@ -301,6 +301,7 @@ function App() {
               </RutaProtegida>
             }
           />
+          <Route path="/privacidad" element={<PrivacidadView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
