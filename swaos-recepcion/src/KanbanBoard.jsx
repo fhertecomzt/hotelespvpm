@@ -90,6 +90,12 @@ export default function KanbanBoard({ usuarioActual }) {
   };
 
   const handleAsignarCamarista = (columnaId, nuevoUsuarioId) => {
+    // Candado de seguridad Offline para asignaciones
+    if (!navigator.onLine) {
+      alertaToast("error", "⚡ Sin conexión. No se pudo asignar el personal.");
+      return;
+    }
+
     if (esRecepcion) {
       alertaToast("error", "Recepción no tiene permisos para reasignar zonas.");
       return;
@@ -118,10 +124,19 @@ export default function KanbanBoard({ usuarioActual }) {
         if (res.success) alertaToast("success", "Camarista asignada a la zona");
       })
       .catch((err) => console.error("Error:", err));
-  };
+  };;
 
   const enviarReporteDano = async () => {
     if (!modalDano) return;
+
+    // Candado de seguridad Offline para envío de reportes y fotos
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. Espera a tener red para despachar la falla.",
+      );
+      return;
+    }
 
     // 🔒 VALIDACIÓN DE TEXTO VACÍO: Evita reportes en blanco o de puros espacios
     if (!descDano || descDano.trim() === "") {
@@ -169,9 +184,18 @@ export default function KanbanBoard({ usuarioActual }) {
     } finally {
       setEnviandoReporte(false);
     }
-  };
+  };;
 
   const onDragEnd = (result) => {
+    // Candado de seguridad Offline para movimientos
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. No se pueden mover las tarjetas en este momento.",
+      );
+      return;
+    }
+
     const { destination, source, draggableId } = result;
     if (!destination) return;
     if (
@@ -239,7 +263,7 @@ export default function KanbanBoard({ usuarioActual }) {
     }
 
     setData(dataActualizada);
-  };
+  };;
 
   if (!data)
     return (

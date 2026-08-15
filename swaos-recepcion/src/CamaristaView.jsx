@@ -108,6 +108,15 @@ export default function CamaristaView({ usuarioActual }) {
   }, [usuarioActual]);
 
   const handleCambioEstatus = (habitacionId, nuevoEstatus) => {
+    //Candado de seguridad Offline Centralizado
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. Acércate a la red para registrar el cambio.",
+      );
+      return; // Detiene la función y evita el fetch
+    }
+
     // 1. Actualización optimista en la interfaz para que se sienta rápido
     const nuevasHabitaciones = data.habitaciones.map((hab) => {
       if (hab.id === habitacionId)
@@ -142,9 +151,20 @@ export default function CamaristaView({ usuarioActual }) {
         console.error("Error de conexión:", err);
         cargarTareas(usuarioActual.id, true);
       });
-  };
+  };;
 
   const handleTomarFoto = async (e, habitacionId) => {
+    // Candado de seguridad Offline para Imágenes
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. No se puede subir la foto en este momento.",
+      );
+      // Limpiamos el input para que pueda volver a intentar después
+      e.target.value = "";
+      return;
+    }
+
     const file = e.target.files[0];
     if (!file) return;
     setSubiendoFoto(habitacionId);
@@ -174,7 +194,7 @@ export default function CamaristaView({ usuarioActual }) {
       setSubiendoFoto(null);
       e.target.value = "";
     }
-  };
+  };;
 
   if (!usuarioActual) return null;
 

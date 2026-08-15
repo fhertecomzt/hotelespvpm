@@ -47,6 +47,23 @@ function App() {
     }
   };
 
+  // DETECTOR GLOBAL DE INTERNET
+  const [hayInternet, setHayInternet] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const manejarConexion = () => setHayInternet(true);
+    const manejarDesconexion = () => setHayInternet(false);
+
+    window.addEventListener("online", manejarConexion);
+    window.addEventListener("offline", manejarDesconexion);
+
+    // Limpieza del efecto
+    return () => {
+      window.removeEventListener("online", manejarConexion);
+      window.removeEventListener("offline", manejarDesconexion);
+    };
+  }, []);
+
   // Agregamos "permisosPermitidos" a las propiedades
   const RutaProtegida = ({ children, rolesPermitidos, permisosPermitidos }) => {
     if (!usuarioActual) return <Navigate to="/" replace />;
@@ -181,6 +198,14 @@ function App() {
                 <span>🚪</span> <span className="hidden md:inline">Salir</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* BARRA DE ALERTA DE CONEXIÓN */}
+        {!hayInternet && (
+          <div className="bg-red-600 text-white text-center py-2 px-4 text-sm font-black flex justify-center items-center gap-2 sticky top-0 z-[60] shadow-md animate-pulse">
+            <span>⚡</span> 
+            Atención: Sin conexión a Internet. Acércate a una zona con señal para continuar.
           </div>
         )}
 

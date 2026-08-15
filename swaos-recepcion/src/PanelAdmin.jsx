@@ -296,6 +296,16 @@ export default function PanelAdmin({ usuarioActual }) {
 
   const handleGuardarUsuario = (e) => {
     e.preventDefault();
+
+    // Candado de seguridad Offline
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. Espera a tener red para guardar los cambios.",
+      );
+      return;
+    }
+
     setGuardando(true);
     fetch(`${API_URL}/guardar_usuario.php`, {
       method: "POST",
@@ -333,13 +343,23 @@ export default function PanelAdmin({ usuarioActual }) {
         setGuardando(false);
         alertaToast("error", "Error de red al conectar con el servidor");
       });
-  };
+  };;
 
   // ==========================================
   // FUNCIONES PARA HOTELES (MODO SAAS CON ALIAS)
   // ==========================================
   const handleGuardarHotel = (e) => {
     e.preventDefault();
+
+    // Candado de seguridad Offline
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. Espera a tener red para guardar los cambios.",
+      );
+      return;
+    }
+
     setGuardando(true);
     fetch(`${API_URL}/gestion_inventario.php?accion=guardar_hotel`, {
       method: "POST",
@@ -366,13 +386,23 @@ export default function PanelAdmin({ usuarioActual }) {
           alertaToast("error", res.message);
         }
       });
-  };
+  };;
 
   // ==========================================
   // FUNCIONES PARA TIPOS DE HABITACIÓN
   // ==========================================
   const handleGuardarTipo = (e) => {
     e.preventDefault();
+
+    // Candado de seguridad Offline
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. Espera a tener red para guardar los cambios.",
+      );
+      return;
+    }
+
     setGuardando(true);
     fetch(`${API_URL}/gestion_inventario.php?accion=guardar_tipo`, {
       method: "POST",
@@ -398,13 +428,23 @@ export default function PanelAdmin({ usuarioActual }) {
           alertaToast("error", res.message);
         }
       });
-  };
+  };;
 
   // ==========================================
   // FUNCIONES PARA ZONAS
   // ==========================================
   const handleGuardarZona = (e) => {
     e.preventDefault();
+
+    // Candado de seguridad Offline
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. Espera a tener red para guardar los cambios.",
+      );
+      return;
+    }
+
     setGuardando(true);
     fetch(`${API_URL}/gestion_inventario.php?accion=guardar_zona`, {
       method: "POST",
@@ -430,7 +470,7 @@ export default function PanelAdmin({ usuarioActual }) {
           alertaToast("error", res.message);
         }
       });
-  };
+  };;
 
   // ==========================================
   // FUNCIONES PARA HABITACIONES
@@ -460,6 +500,16 @@ export default function PanelAdmin({ usuarioActual }) {
 
   const handleGuardarHabitacion = (e) => {
     e.preventDefault();
+
+    // Candado de seguridad Offline
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. Espera a tener red para guardar los cambios.",
+      );
+      return;
+    }
+
     setGuardando(true);
     fetch(`${API_URL}/gestion_inventario.php?accion=guardar_habitacion`, {
       method: "POST",
@@ -486,7 +536,7 @@ export default function PanelAdmin({ usuarioActual }) {
           alertaToast("error", res.message);
         }
       });
-  };
+  };;
 
   // ==========================================
   // ELIMINADOR GENÉRICO CON MODAL SWEETALERT2
@@ -515,6 +565,15 @@ export default function PanelAdmin({ usuarioActual }) {
 
     if (!confirmacion.isConfirmed) return;
 
+    // Candado de seguridad Offline (después de confirmar)
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. No se puede eliminar el registro en este momento.",
+      );
+      return;
+    }
+
     const url =
       tabla === "usuarios"
         ? `${API_URL}/eliminar_usuario.php`
@@ -539,7 +598,7 @@ export default function PanelAdmin({ usuarioActual }) {
         }
       })
       .catch(() => alertaToast("error", "Fallo de conexión al eliminar"));
-  };
+  };;
 
   return (
     <div className="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen font-sans p-4 md:p-8 transition-colors duration-300">

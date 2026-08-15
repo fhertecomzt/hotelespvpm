@@ -92,6 +92,15 @@ export default function MantenimientoView({ usuarioActual }) {
 
   // CAMBIAR ESTATUS RÁPIDO
   const cambiarEstatus = (id, nuevoEstatus) => {
+        //Candado de seguridad Offline Centralizado
+        if (!navigator.onLine) {
+          alertaToast(
+            "error",
+            "⚡ Sin conexión. Acércate a la red para registrar el cambio.",
+          );
+          return; // Detiene la función y evita el fetch
+        }
+
     fetch(`${API_URL}/actualizar_estatus_dano.php`, {
       method: "POST",
       headers: {
@@ -119,6 +128,15 @@ export default function MantenimientoView({ usuarioActual }) {
   // GUARDAR RESOLUCIÓN CON FOTO (FormData) EN evidencias_danos/
   const confirmarResolucion = async () => {
     if (!reporteSeleccionado) return;
+
+    //Candado de seguridad Offline para Resoluciones con Foto
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. Acércate a la red para enviar la foto y cerrar el reporte.",
+      );
+      return;
+    }
     setGuardando(true);
 
     try {
@@ -159,7 +177,7 @@ export default function MantenimientoView({ usuarioActual }) {
       setGuardando(false);
       alertaToast("error", "Fallo de conexión al enviar evidencia");
     }
-  };
+  };;
 
   const reportesFiltrados = reportes.filter((r) => {
     const coincideHotel =
