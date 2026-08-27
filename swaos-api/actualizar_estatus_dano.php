@@ -3,10 +3,9 @@
 ini_set('display_errors', 0);
 error_reporting(0);
 
-require_once 'auth.php'; // <-- ESTO REEMPLAZA TODO EL BLOQUE GIGANTE
+require_once 'auth.php';
 require_once 'db.php';
 header('Content-Type: application/json; charset=utf-8');
-
 
 try {
   $inputJSON = file_get_contents('php://input');
@@ -16,6 +15,7 @@ try {
   $reporte_id = intval($data['reporte_id'] ?? ($data['id'] ?? 0));
   $estatus = trim($data['estatus'] ?? ($data['nuevo_estatus'] ?? ''));
   $notas = trim($data['notas_resolucion'] ?? ($data['notas'] ?? ''));
+  $diagnostico = trim($data['diagnostico'] ?? ''); // VARIABLE PARA EL MODAL "ATENDER"
   $resuelto_por = intval($data['resuelto_por'] ?? ($data['usuario_id'] ?? 1));
 
   if ($reporte_id <= 0 || empty($estatus)) {
@@ -26,6 +26,7 @@ try {
     exit;
   }
 
+  // Prevención de errores si faltan columnas en BD
   try {
     $pdo->exec("ALTER TABLE reportes_danos ADD COLUMN notas_resolucion TEXT DEFAULT NULL");
   } catch (Exception $e) {
@@ -42,8 +43,12 @@ try {
     $pdo->exec("ALTER TABLE reportes_danos ADD COLUMN foto_resolucion_url VARCHAR(255) DEFAULT NULL");
   } catch (Exception $e) {
   }
+  try {
+    $pdo->exec("ALTER TABLE reportes_danos ADD COLUMN diagnostico TEXT DEFAULT NULL AFTER descripcion");
+  } catch (Exception $e) {
+  } // ASEGURAMOS LA NUEVA COLUMNA
 
-  // 3. Guardar en tu carpeta real: evidencias_danos/
+  // Guardar en tu carpeta real: evidencias_danos/
   $foto_resolucion_sql = "";
   $params_foto = [];
   if (isset($_FILES['foto_resolucion']) && $_FILES['foto_resolucion']['error'] === UPLOAD_ERR_OK) {
@@ -55,18 +60,23 @@ try {
     $ruta_destino = $directorio . $nombre_archivo;
 
     if (move_uploaded_file($_FILES['foto_resolucion']['tmp_name'], $ruta_destino)) {
-      // Guardamos la ruta con la carpeta incluida
       $foto_resolucion_sql = ", foto_resolucion_url = ?";
       $params_foto[] = $ruta_destino;
     }
   }
 
+  // LÓGICA DE ACTUALIZACIÓN SEGÚN EL ESTATUS
   if ($estatus === 'Resuelto') {
     $sql = "UPDATE reportes_danos SET estatus = ?, notas_resolucion = ?, resuelto_por = ?, fecha_resolucion = NOW()" . $foto_resolucion_sql . " WHERE id = ?";
     $params = array_merge([$estatus, $notas, $resuelto_por], $params_foto, [$reporte_id]);
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
+  } else if ($estatus === 'En Reparación') {
+    // NUEVA SECCIÓN: Guarda el texto capturado en el modal de Mantenimiento
+    $stmt = $pdo->prepare("UPDATE reportes_danos SET estatus = ?, diagnostico = ?, resuelto_por = ? WHERE id = ?");
+    $stmt->execute([$estatus, $diagnostico, $resuelto_por, $reporte_id]);
   } else {
+    // Cualquier otro estatus
     $stmt = $pdo->prepare("UPDATE reportes_danos SET estatus = ?, resuelto_por = ? WHERE id = ?");
     $stmt->execute([$estatus, $resuelto_por, $reporte_id]);
   }

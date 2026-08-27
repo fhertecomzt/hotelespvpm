@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { alertaToast, comprimirImagen } from "./utils";
+import ModalAtender from "./ModalAtender";
 
 const API_URL = "/sistema/swaos-api";
 
@@ -17,6 +18,8 @@ export default function MantenimientoView({ usuarioActual }) {
   const [fotoResolucion, setFotoResolucion] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const token = localStorage.getItem("swaos_token"); // Sacamos el token
+
+  const [reporteAAtender, setReporteAAtender] = useState(null);
 
   const cargarReportes = (silencioso = false) => {
     if (!silencioso) setCargando(true);
@@ -92,14 +95,14 @@ export default function MantenimientoView({ usuarioActual }) {
 
   // CAMBIAR ESTATUS RÁPIDO
   const cambiarEstatus = (id, nuevoEstatus) => {
-        //Candado de seguridad Offline Centralizado
-        if (!navigator.onLine) {
-          alertaToast(
-            "error",
-            "⚡ Sin conexión. Acércate a la red para registrar el cambio.",
-          );
-          return; // Detiene la función y evita el fetch
-        }
+    //Candado de seguridad Offline Centralizado
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. Acércate a la red para registrar el cambio.",
+      );
+      return; // Detiene la función y evita el fetch
+    }
 
     fetch(`${API_URL}/actualizar_estatus_dano.php`, {
       method: "POST",
@@ -177,7 +180,7 @@ export default function MantenimientoView({ usuarioActual }) {
       setGuardando(false);
       alertaToast("error", "Fallo de conexión al enviar evidencia");
     }
-  };;
+  };
 
   const reportesFiltrados = reportes.filter((r) => {
     const coincideHotel =
@@ -390,11 +393,21 @@ export default function MantenimientoView({ usuarioActual }) {
                         </div>
                       )}
 
-                      {/* NOTAS DE RESOLUCIÓN */}
+                      {/* DIAGNÓSTICO INICIAL (El por qué está en reparación) */}
+                      {r.diagnostico && (
+                        <div className="bg-amber-50 dark:bg-amber-950/30 p-3 rounded-2xl border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300 mt-2">
+                          <span className="font-bold block text-[10px] uppercase tracking-wider mb-0.5">
+                            🔍 Diagnóstico de Mantenimiento:
+                          </span>
+                          {r.diagnostico}
+                        </div>
+                      )}
+
+                      {/* NOTAS DE RESOLUCIÓN FINALES (Cómo se solucionó) */}
                       {r.notas_resolucion && (
                         <div className="bg-emerald-50 dark:bg-emerald-950/30 p-3 rounded-2xl border border-emerald-200 dark:border-emerald-800/40 text-xs text-emerald-800 dark:text-emerald-300 mt-2">
                           <span className="font-bold block text-[10px] uppercase tracking-wider mb-0.5">
-                            📝 Detalle técnico:
+                            📝 Detalle técnico final:
                           </span>
                           {r.notas_resolucion}
                         </div>
@@ -416,8 +429,8 @@ export default function MantenimientoView({ usuarioActual }) {
                     <div className="flex gap-1.5 shrink-0">
                       {esPendiente && (
                         <button
-                          onClick={() => cambiarEstatus(r.id, "En Reparación")}
-                          className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all"
+                          onClick={() => setReporteAAtender(r.id)} // Abrimos el modal con el ID
+                          className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-3 rounded-lg text-sm flex gap-1 items-center"
                         >
                           🔧 Atender
                         </button>
@@ -521,6 +534,52 @@ export default function MantenimientoView({ usuarioActual }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL PARA ATENDER REPORTE */}
+      {reporteAAtender && (
+        <ModalAtender
+          reporteId={reporteAAtender}
+          onClose={() => setReporteAAtender(null)}
+          onConfirm={async (id, diagnostico) => {
+            try {
+              // Hacemos la petición a tu API
+              const res = await fetch(`${API_URL}/actualizar_estatus_dano.php`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`, // Tu token de seguridad
+                },
+                body: JSON.stringify({
+                  reporte_id: id,
+                  estatus: "En Reparación",
+                  diagnostico: diagnostico,
+                  usuario_id: usuarioActual.id, // Quién lo está atendiendo
+                }),
+              });
+
+              const respuesta = await res.json();
+
+              if (respuesta.success) {
+                alertaToast(
+                  "success",
+                  "✅ Reporte actualizado y diagnóstico guardado.",
+                );
+                setReporteAAtender(null); // Cerramos el modal
+
+                // Aquí debes llamar a la función que recarga tus tarjetas
+                // Por ejemplo: cargarReportes() o actualizarVista()
+                // Llamamos la función existente para recargar las tarjetas en vivo
+                cargarReportes();
+              } else {
+                alertaToast("error", "❌ " + respuesta.message);
+              }
+            } catch (error) {
+              console.error("🚨 Error al guardar diagnóstico:", error);
+              alertaToast("error", "❌ Error de conexión con el servidor.");
+            }
+          }}
+        />
       )}
     </div>
   );

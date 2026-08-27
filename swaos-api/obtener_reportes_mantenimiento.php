@@ -30,6 +30,7 @@ $sql = "
         r.estatus,
         r.fecha_reporte,
         r.fecha_resolucion,
+        r.diagnostico,
         u_rep.nombre AS rep_nombre,
         u_rep.primer_apellido AS rep_apellido,
         u_res.nombre AS res_nombre,
