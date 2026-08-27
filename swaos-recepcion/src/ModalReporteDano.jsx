@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { alertaToast, comprimirImagen } from "./utils";
 
 const API_URL = "/sistema/swaos-api";
+
 const TIPOS_DANO = [
   "Aire Acondicionado",
   "Plomería",
@@ -15,6 +16,9 @@ export default function ModalReporteDano({ habitacionId, usuarioId, onClose }) {
   const [descDano, setDescDano] = useState("");
   const [fotoDano, setFotoDano] = useState(null);
   const [enviandoReporte, setEnviandoReporte] = useState(false);
+
+  // ¡AQUÍ ESTÁ LA MAGIA! Extraemos el token para que el fetch no se estrelle
+  const token = localStorage.getItem("swaos_token");
 
   const enviarReporteDano = async () => {
     if (!descDano || descDano.trim() === "") {
@@ -54,6 +58,8 @@ export default function ModalReporteDano({ habitacionId, usuarioId, onClose }) {
         alertaToast("error", "❌ Error" + respuesta.message);
       }
     } catch (err) {
+      // Dejamos el console.error para que si falla otra cosa, la consola nos hable
+      console.error("🚨 DETALLE DEL ERROR AL ENVIAR REPORTE:", err);
       alertaToast("error", "❌ Error de red o al procesar la imagen del daño.");
     } finally {
       setEnviandoReporte(false);

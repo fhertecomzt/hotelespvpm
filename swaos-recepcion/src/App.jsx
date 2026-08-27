@@ -108,230 +108,222 @@ function App() {
 
   const getNombreCompleto = (u) => {
     if (!u) return "";
-    return `${u.nombre} ${u.primer_apellido || ""} ${u.segundo_apellido || ""}`.trim();
+    return `${u.nombre} ${u.primer_apellido || ""} `.trim();
   };
 
-  return (
-    <BrowserRouter>
-      <div className="w-full min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 relative transition-colors duration-300">
-        {/* BARRA SUPERIOR DE SESIÓN Y TEMA */}
-        {usuarioActual && (
-          <div className="bg-slate-900 dark:bg-slate-950 text-slate-300 px-4 py-2.5 flex justify-between items-center text-xs font-bold print:hidden sticky top-0 z-50 shadow-md border-b border-slate-800">
-            <div className="flex items-center gap-3">
-              <span className="bg-indigo-500/20 text-indigo-400 px-2.5 py-1 rounded border border-indigo-500/30 uppercase tracking-wider font-black">
-                {usuarioActual.rol}
-              </span>
-              <span className="text-white text-sm font-extrabold">
+return (
+  <BrowserRouter>
+    <div className="w-full min-h-screen bg-slate-50 dark:bg-[#131620] text-slate-800 dark:text-slate-100 relative transition-colors duration-300">
+      {/* NUEVA BARRA SUPERIOR MÓVIL (Basada en el boceto) */}
+      {usuarioActual && (
+        <div className="bg-slate-900 dark:bg-[#1a1e2d] text-white p-3 sticky top-0 z-50 shadow-md border-b border-slate-800 flex justify-between items-center print:hidden">
+          {/* Lado Izquierdo: Foto y Datos Dinámicos */}
+          <div className="flex items-center gap-2 overflow-hidden">
+            <div className="w-10 h-10 shrink-0 rounded-full bg-slate-700 flex items-center justify-center border-2 border-slate-500 overflow-hidden">
+              <span className="text-xl">👩‍💼</span>
+            </div>
+            <div className="flex flex-col justify-center min-w-0">
+              <span className="font-bold text-[13px] leading-tight text-white truncate max-w-[130px] sm:max-w-[200px]">
                 {getNombreCompleto(usuarioActual)}
               </span>
+              <span className="text-[10px] text-indigo-300 dark:text-slate-400 tracking-wide uppercase mt-0.5 truncate">
+                {usuarioActual.rol}
+              </span>
             </div>
+          </div>
 
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* ESTE BOTÓN DEBE ESTAR AL INICIO DEL MENÚ DE ACCIONES PARA QUE TODOS LO VEAN */}
-              <button
-                onClick={alternarTema}
-                title="Cambiar apariencia visual"
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg shadow transition-all flex items-center gap-1.5 font-extrabold text-[11px]"
-              >
-                {tema === "light" && (
-                  <>
-                    <span>☀️</span>{" "}
-                    <span className="hidden sm:inline">Claro</span>
-                  </>
-                )}
-                {tema === "dark" && (
-                  <>
-                    <span>🌙</span>{" "}
-                    <span className="hidden sm:inline">Oscuro</span>
-                  </>
-                )}
-                {tema === "system" && (
-                  <>
-                    <span>💻</span>{" "}
-                    <span className="hidden sm:inline">Sistema</span>
-                  </>
-                )}
-              </button>
+          {/* Lado Derecho: Los Botones de Acción Intactos */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* 1. Botón Tema (Conserva tu función alternarTema) */}
+            <button
+              onClick={alternarTema}
+              title="Cambiar apariencia visual"
+              className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors shrink-0"
+            >
+              <span className="text-sm">
+                {tema === "light" ? "☀️" : tema === "dark" ? "🌙" : "💻"}
+              </span>
+            </button>
 
-              {/* BOTÓN DE DASHBOARD: SOLO ADMIN Y SUPERUSUARIO */}
+            {/* 2. Botón Inicio */}
+            <Link
+              to="/"
+              title="Inicio"
+              className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors shrink-0"
+            >
+              <span className="text-sm">🏠</span>
+            </Link>
 
+            {/* 3. Botón Admin (Conserva tu lógica de seguridad) */}
+            {(usuarioActual.rol === "Administrador" ||
+              usuarioActual.rol === "Superusuario" ||
+              (usuarioActual.permisos &&
+                usuarioActual.permisos.length > 0)) && (
               <Link
-                to="/"
-                title="Volver a mi panel principal"
-                className="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded-lg shadow transition-colors flex items-center gap-1 font-bold"
+                to="/admin"
+                title="Administración"
+                className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg border border-indigo-500/40 transition-colors shrink-0"
               >
-                <span>🏠</span> <span className="hidden sm:inline">Inicio</span>
+                <span className="text-sm">⚙️</span>
               </Link>
+            )}
 
-              {/* BOTÓN DE ADMINISTRACIÓN: ADMIN, SUPERUSUARIO O PERSONAL CON PERMISOS ESPECIALES */}
-              {(usuarioActual.rol === "Administrador" ||
-                usuarioActual.rol === "Superusuario" ||
-                (usuarioActual.permisos &&
-                  usuarioActual.permisos.length > 0)) && (
-                <Link
-                  to="/admin"
-                  className="bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/40 px-3 py-1.5 rounded-lg shadow transition-colors flex items-center gap-1 font-bold"
-                >
-                  <span>⚙️</span>{" "}
-                  <span className="hidden sm:inline">Admin</span>
-                </Link>
-              )}
-
-              {/* BOTÓN DE ESCANEAR: OCULTO PARA RECEPCIÓN */}
-              {usuarioActual.rol !== "Recepcion" && (
-                <Link
-                  to="/escaner"
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg shadow transition-colors flex items-center gap-1 font-bold"
-                >
-                  <span>📷</span>{" "}
-                  <span className="hidden sm:inline">Escanear</span>
-                </Link>
-              )}
-
-              <button
-                onClick={() => {
-                  setUsuarioActual(null);
-                  localStorage.removeItem("swaos_usuario"); // Borra la sesión física
-                }}
-                className="hover:text-red-400 text-slate-400 transition-colors flex items-center gap-1 ml-1 border-l border-slate-800 pl-3"
+            {/* 4. Botón Cámara (Conserva tu lógica de ocultar a Recepción) */}
+            {usuarioActual.rol !== "Recepcion" && (
+              <Link
+                to="/escaner"
+                title="Escanear"
+                className="w-8 h-8 flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 rounded-lg border border-indigo-500 shadow-sm transition-colors shrink-0"
               >
-                <span>🚪</span> <span className="hidden md:inline">Salir</span>
-              </button>
-            </div>
+                <span className="text-sm">📷</span>
+              </Link>
+            )}
+
+            {/* 5. Botón Puerta (Salir y limpiar sesión) */}
+            <button
+              onClick={() => {
+                setUsuarioActual(null);
+                localStorage.removeItem("swaos_usuario");
+              }}
+              title="Salir del sistema"
+              className="w-8 h-8 flex items-center justify-center hover:bg-red-950/40 rounded-lg transition-colors shrink-0 ml-0.5"
+            >
+              <span className="text-lg">🚪</span>
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* BARRA DE ALERTA DE CONEXIÓN */}
-        {!hayInternet && (
-          <div className="bg-red-600 text-white text-center py-2 px-4 text-sm font-black flex justify-center items-center gap-2 sticky top-0 z-[60] shadow-md animate-pulse">
-            <span>⚡</span> 
-            Atención: Sin conexión a Internet. Acércate a una zona con señal para continuar.
-          </div>
-        )}
+      {/* BARRA DE ALERTA DE CONEXIÓN */}
+      {!hayInternet && (
+        <div className="bg-red-600 text-white text-center py-2 px-4 text-sm font-black flex justify-center items-center gap-2 sticky top-0 z-[60] shadow-md animate-pulse">
+          <span>⚡</span>
+          Atención: Sin conexión a Internet. Acércate a una zona con señal para
+          continuar.
+        </div>
+      )}
 
-        <Routes>
-          <Route
-            path="/"
-            element={
-              usuarioActual ? (
-                <Navigate
-                  to={
-                    usuarioActual.rol === "Administrador" ||
-                    usuarioActual.rol === "Superusuario"
-                      ? "/dashboard"
-                      : usuarioActual.rol === "Mantenimiento"
-                        ? "/mantenimiento"
-                        : usuarioActual.rol === "Camarista"
-                          ? "/camarista"
-                          : "/recepcion"
-                  }
-                  replace
-                />
-              ) : (
-                <Login setUsuarioActual={setUsuarioActual} />
-              )
-            }
-          />
+      <Routes>
+        <Route
+          path="/"
+          element={
+            usuarioActual ? (
+              <Navigate
+                to={
+                  usuarioActual.rol === "Administrador" ||
+                  usuarioActual.rol === "Superusuario"
+                    ? "/dashboard"
+                    : usuarioActual.rol === "Mantenimiento"
+                      ? "/mantenimiento"
+                      : usuarioActual.rol === "Camarista"
+                        ? "/camarista"
+                        : "/recepcion"
+                }
+                replace
+              />
+            ) : (
+              <Login setUsuarioActual={setUsuarioActual} />
+            )
+          }
+        />
 
-          <Route
-            path="/recepcion"
-            element={
-              <RutaProtegida
-                rolesPermitidos={[
-                  "Recepcion",
-                  "Ama de Llaves",
-                  "Administrador",
-                  "Superusuario",
-                ]}
-              >
-                <KanbanBoard usuarioActual={usuarioActual} />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path="/camarista"
-            element={
-              <RutaProtegida rolesPermitidos={["Camarista"]}>
-                <CamaristaView usuarioActual={usuarioActual} />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path="/mantenimiento"
-            element={
-              <RutaProtegida
-                rolesPermitidos={[
-                  "Mantenimiento",
-                  "Administrador",
-                  "Superusuario",
-                ]}
-              >
-                <MantenimientoView usuarioActual={usuarioActual} />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <RutaProtegida
-                rolesPermitidos={["Administrador", "Superusuario"]}
-                permisosPermitidos={[
-                  "crear_empleado",
-                  "gestionar_hoteles",
-                  "gestionar_zonas",
-                  "gestionar_habitaciones",
-                ]}
-              >
-                <PanelAdmin usuarioActual={usuarioActual} />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <RutaProtegida
-                rolesPermitidos={["Administrador", "Superusuario"]}
-              >
-                <DashboardView usuarioActual={usuarioActual} />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path="/qrs"
-            element={
-              <RutaProtegida
-                rolesPermitidos={[
-                  "Ama de Llaves",
-                  "Administrador",
-                  "Superusuario",
-                ]}
-              >
-                <GeneradorQR />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path="/escaner"
-            element={
-              <RutaProtegida
-                rolesPermitidos={[
-                  "Camarista",
-                  "Ama de Llaves",
-                  "Mantenimiento",
-                  "Administrador",
-                  "Superusuario",
-                ]}
-              >
-                <EscanerQR usuarioActual={usuarioActual} />
-              </RutaProtegida>
-            }
-          />
-          <Route path="/privacidad" element={<PrivacidadView />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
-    </BrowserRouter>
-  );
+        <Route
+          path="/recepcion"
+          element={
+            <RutaProtegida
+              rolesPermitidos={[
+                "Recepcion",
+                "Ama de Llaves",
+                "Administrador",
+                "Superusuario",
+              ]}
+            >
+              <KanbanBoard usuarioActual={usuarioActual} />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/camarista"
+          element={
+            <RutaProtegida rolesPermitidos={["Camarista"]}>
+              <CamaristaView usuarioActual={usuarioActual} />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/mantenimiento"
+          element={
+            <RutaProtegida
+              rolesPermitidos={[
+                "Mantenimiento",
+                "Administrador",
+                "Superusuario",
+              ]}
+            >
+              <MantenimientoView usuarioActual={usuarioActual} />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <RutaProtegida
+              rolesPermitidos={["Administrador", "Superusuario"]}
+              permisosPermitidos={[
+                "crear_empleado",
+                "gestionar_hoteles",
+                "gestionar_zonas",
+                "gestionar_habitaciones",
+              ]}
+            >
+              <PanelAdmin usuarioActual={usuarioActual} />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <RutaProtegida rolesPermitidos={["Administrador", "Superusuario"]}>
+              <DashboardView usuarioActual={usuarioActual} />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/qrs"
+          element={
+            <RutaProtegida
+              rolesPermitidos={[
+                "Ama de Llaves",
+                "Administrador",
+                "Superusuario",
+              ]}
+            >
+              <GeneradorQR />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/escaner"
+          element={
+            <RutaProtegida
+              rolesPermitidos={[
+                "Camarista",
+                "Ama de Llaves",
+                "Mantenimiento",
+                "Administrador",
+                "Superusuario",
+              ]}
+            >
+              <EscanerQR usuarioActual={usuarioActual} />
+            </RutaProtegida>
+          }
+        />
+        <Route path="/privacidad" element={<PrivacidadView />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </div>
+  </BrowserRouter>
+);
 }
 
 export default App;

@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+// Importamos el componente de Cloudflare Turnstile
+import { Turnstile } from "@marsidev/react-turnstile";
+// Importamos tu utilidad de alertas
+import { alertaToast } from "./utils";
 
 const API_URL = "/sistema/swaos-api";
 
@@ -9,17 +13,56 @@ export default function Login({ setUsuarioActual }) {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
 
+  // ESTADO: Para la casilla de recordar
+  const [recordar, setRecordar] = useState(false);
+
+  // Estado para almacenar el token de seguridad
+  const [captchaToken, setCaptchaToken] = useState(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const correoGuardado = localStorage.getItem("swaos_email_recordado");
+    if (correoGuardado) {
+      setEmail(correoGuardado);
+      setRecordar(true);
+    }
+  }, []);
+
+  const handleEmailChange = (e) => {
+    // Filtro estricto para evitar inyecciones en el input
+    const correoLimpio = e.target.value.replace(/[^a-zA-Z0-9@.\-_]/g, "");
+    setEmail(correoLimpio);
+  };
 
   const handleLogin = (e) => {
     e.preventDefault();
+
+    // Candado de seguridad: Evitar envío si el bot no pasó la prueba
+    if (!captchaToken) {
+      alertaToast(
+        "error",
+        "⚠️ Verificación de seguridad en proceso o fallida. Intenta de nuevo.",
+      );
+      return;
+    }
+
+    if (recordar) {
+      localStorage.setItem("swaos_email_recordado", email);
+    } else {
+      localStorage.removeItem("swaos_email_recordado");
+    }
+
     setError("");
     setCargando(true);
 
     fetch(`${API_URL}/login.php`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({
+        email,
+        password,
+        cf_turnstile_response: captchaToken, // Enviamos el token al servidor
+      }),
     })
       .then((res) => res.json())
       .then((res) => {
@@ -27,9 +70,9 @@ export default function Login({ setUsuarioActual }) {
         if (res.success) {
           // Guardamos el usuario
           localStorage.setItem("swaos_usuario", JSON.stringify(res.usuario));
-          // NUEVO: Guardamos el token
+          // Guardamos el token
           localStorage.setItem("swaos_token", res.token);
-          //Usuario global
+          // Usuario global
           setUsuarioActual(res.usuario);
 
           // Redirección inteligente según el rol del empleado
@@ -59,7 +102,6 @@ export default function Login({ setUsuarioActual }) {
   }, []);
 
   return (
-    // 🔴 1. Agrega la clase 'relative' a este contenedor principal
     <div className="relative min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-black text-slate-800 tracking-tight">
@@ -88,7 +130,7 @@ export default function Login({ setUsuarioActual }) {
                   type="email"
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={handleEmailChange} // APLICAMOS EL FILTRO AQUÍ
                   placeholder="ejemplo@hotel.com"
                   className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-colors"
                 />
@@ -111,6 +153,32 @@ export default function Login({ setUsuarioActual }) {
               </div>
             </div>
 
+            {/* Casilla Recordar y Captcha */}
+            <div className="flex items-center justify-between mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={recordar}
+                  onChange={(e) => setRecordar(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-slate-600 font-semibold">
+                  Recordar mi correo
+                </span>
+              </label>
+            </div>
+
+            <div className="flex justify-center my-4">
+              <Turnstile
+                siteKey="0x4AAAAAAESSDDV0_9H9Qmj4" // Llave de cloudflare
+                onSuccess={(token) => setCaptchaToken(token)}
+                onError={() =>
+                  alertaToast("error", "No se pudo cargar el sistema anti-bots")
+                }
+                options={{ theme: "light" }}
+              />
+            </div>
+
             <div>
               <button
                 type="submit"
@@ -123,7 +191,7 @@ export default function Login({ setUsuarioActual }) {
           </form>
         </div>
       </div>
-      {/* 🔴 2. Agrega este bloque al final, justo antes de cerrar el div principal */}
+
       <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8">
         <Link
           to="/privacidad"

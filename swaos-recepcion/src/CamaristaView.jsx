@@ -5,42 +5,35 @@ import { alertaToast, comprimirImagen } from "./utils";
 
 const API_URL = "/sistema/swaos-api";
 
+// NUEVOS COLORES MODO OSCURO
 const COLORES_ESTATUS = {
-  Limpia: "bg-green-100 text-green-800 border-green-300",
-  "En Proceso": "bg-yellow-100 text-yellow-800 border-yellow-300",
-  "Salida Confirmada": "bg-blue-100 text-blue-800 border-blue-300",
-  Ocupada: "bg-slate-100 text-slate-800 border-slate-300",
-  "Solicitud Aseo": "bg-purple-100 text-purple-800 border-purple-300",
-  DND: "bg-red-100 text-red-800 border-red-300",
+  Limpia: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  "En Proceso": "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  "Salida Confirmada": "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  Ocupada: "bg-slate-500/30 text-slate-300 border-slate-500/40",
+  "Solicitud Aseo": "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  DND: "bg-red-500/20 text-red-400 border-red-500/30",
 };
 
-// Recibimos al usuario logueado en las propiedades
 export default function CamaristaView({ usuarioActual }) {
   const [data, setData] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [subiendoFoto, setSubiendoFoto] = useState(null);
   const [modalDano, setModalDano] = useState(null);
   const [habitacionAEscanear, setHabitacionAEscanear] = useState(null);
-  const token = localStorage.getItem("swaos_token"); // Sacamos el token
+  const token = localStorage.getItem("swaos_token");
 
   const handleValidarPresencia = (textoDetectado) => {
     if (textoDetectado) {
       try {
         const data = JSON.parse(textoDetectado[0].rawValue);
-
-        // 1. Validamos que sea un QR de SWAOS y que el ID de la etiqueta coincida con el ID que guardamos en 'habitacionAEscanear'
         if (data.sys === "SWAOS") {
           if (parseInt(data.hab_id) === habitacionAEscanear) {
-            // ¡ÉXITO! La camarista está en la puerta correcta
             alertaToast(
               "success",
               "📍 Presencia confirmada. ¡Arrancando tiempo!",
             );
-
-            // Disparamos la actualización a la base de datos automáticamente
             handleCambioEstatus(habitacionAEscanear, "En Proceso");
-
-            // Cerramos la cámara
             setHabitacionAEscanear(null);
           } else {
             alertaToast(
@@ -57,32 +50,21 @@ export default function CamaristaView({ usuarioActual }) {
     }
   };
 
-  // Cargamos estrictamente las tareas del ID autenticado (soporta modo silencioso para tiempo real)
   const cargarTareas = (id, silencioso = false) => {
     if (!id) return;
-
-    // Solo mostramos la pantalla de carga si NO es una actualización en segundo plano
-    if (!silencioso) {
-      setCargando(true);
-    }
+    if (!silencioso) setCargando(true);
 
     fetch(`${API_URL}/obtener_tareas_camarista.php?usuario_id=${id}`, {
-      headers: {
-        Authorization: `Bearer ${token}`, // Lo enviamos al PHP
-      },
+      headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
       .then((fetchedData) => {
         setData(fetchedData);
-        if (!silencioso) {
-          setCargando(false);
-        }
+        if (!silencioso) setCargando(false);
       })
       .catch((err) => {
         console.error("Error cargando tareas:", err);
-        if (!silencioso) {
-          setCargando(false);
-        }
+        if (!silencioso) setCargando(false);
       });
   };
 
@@ -94,30 +76,23 @@ export default function CamaristaView({ usuarioActual }) {
 
   useEffect(() => {
     if (usuarioActual?.id) {
-      // 1. Primera carga: muestra el spinner normalmente
       cargarTareas(usuarioActual.id, false);
-
-      // 2. Sincronización automática en vivo (cada 7 segundos y en silencio)
       const intervalo = setInterval(() => {
         cargarTareas(usuarioActual.id, true);
       }, 7000);
-
-      // 3. Limpieza: apaga el temporizador si sale de la vista
       return () => clearInterval(intervalo);
     }
   }, [usuarioActual]);
 
   const handleCambioEstatus = (habitacionId, nuevoEstatus) => {
-    //Candado de seguridad Offline Centralizado
     if (!navigator.onLine) {
       alertaToast(
         "error",
         "⚡ Sin conexión. Acércate a la red para registrar el cambio.",
       );
-      return; // Detiene la función y evita el fetch
+      return;
     }
 
-    // 1. Actualización optimista en la interfaz para que se sienta rápido
     const nuevasHabitaciones = data.habitaciones.map((hab) => {
       if (hab.id === habitacionId)
         return { ...hab, estatus_operativo: nuevoEstatus };
@@ -125,7 +100,6 @@ export default function CamaristaView({ usuarioActual }) {
     });
     setData({ ...data, habitaciones: nuevasHabitaciones });
 
-    // 2. Petición al servidor (Corregida sin la letra "h")
     fetch(`${API_URL}/actualizar_estatus.php`, {
       method: "POST",
       headers: {
@@ -133,14 +107,13 @@ export default function CamaristaView({ usuarioActual }) {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        habitacionId: habitacionId, // Se envía el número puro
+        habitacionId: habitacionId,
         nuevoEstatus: nuevoEstatus,
-        usuario_id: usuarioActual.id, // Añadimos el ID por si la bitácora lo requiere
+        usuario_id: usuarioActual.id,
       }),
     })
       .then((res) => res.json())
       .then((respuesta) => {
-        // Si el servidor marca error, recargamos los datos para corregir la pantalla
         if (!respuesta.success) {
           console.error("El backend no pudo actualizar:", respuesta.message);
           cargarTareas(usuarioActual.id, true);
@@ -151,16 +124,14 @@ export default function CamaristaView({ usuarioActual }) {
         console.error("Error de conexión:", err);
         cargarTareas(usuarioActual.id, true);
       });
-  };;
+  };
 
   const handleTomarFoto = async (e, habitacionId) => {
-    // Candado de seguridad Offline para Imágenes
     if (!navigator.onLine) {
       alertaToast(
         "error",
         "⚡ Sin conexión. No se puede subir la foto en este momento.",
       );
-      // Limpiamos el input para que pueda volver a intentar después
       e.target.value = "";
       return;
     }
@@ -174,52 +145,33 @@ export default function CamaristaView({ usuarioActual }) {
       const formData = new FormData();
       formData.append("foto", blobComprimido, `evidencia_${habitacionId}.webp`);
       formData.append("habitacion_id", habitacionId);
-      formData.append("usuario_id", usuarioActual.id); // Usamos ID real de sesión
+      formData.append("usuario_id", usuarioActual.id);
 
       const res = await fetch(`${API_URL}/guardar_evidencia.php`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
       const respuesta = await res.json();
-      if (respuesta.success)
+      if (respuesta.success) {
         alertaToast("success", "✅ Evidencia guardada en servidor.");
-      else alertaToast("error", `❌ Error: ${respuesta.message}`);
+      } else {
+        alertaToast("error", `❌ Error: ${respuesta.message}`);
+      }
     } catch (error) {
+      console.error("🚨 DETALLE DEL ERROR AL SUBIR FOTO:", error);
       alertaToast("error", "❌ Error de red o al procesar la imagen del daño.");
     } finally {
       setSubiendoFoto(null);
       e.target.value = "";
     }
-  };;
+  };
 
   if (!usuarioActual) return null;
 
   return (
-    <div className="bg-slate-900 min-h-screen font-sans pb-16 relative">
-      {/* CABECERA LIMPIA (Sin simulador, muestra el nombre y turno real) */}
-      <div className="bg-slate-800 text-white p-4 sticky top-0 z-20 shadow-md border-b border-slate-700">
-        <div className="max-w-md mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="font-black text-lg tracking-wide">
-              📱 SWAOS Camaristas
-            </h1>
-            <p className="text-xs text-slate-400">Jornada 9:00 AM - 5:00 PM</p>
-          </div>
-
-          <div className="bg-slate-700/80 border border-slate-600 px-3 py-1.5 rounded-lg text-right">
-            <span className="block text-xs font-black text-indigo-300 uppercase tracking-wider">
-              Turno Activo
-            </span>
-            <span className="text-xs font-bold text-white">
-              👤 {usuarioActual.nombre} {usuarioActual.primer_apellido}
-            </span>
-          </div>
-        </div>
-      </div>
+    <div className="bg-slate-50 dark:bg-[#131620] min-h-screen font-sans pb-16 relative">
+      {/* NOTA: El encabezado superior se eliminó porque ahora lo controla App.jsx */}
 
       <div className="max-w-md mx-auto p-4 mt-2">
         {cargando && (
@@ -240,15 +192,22 @@ export default function CamaristaView({ usuarioActual }) {
 
         {!cargando && data && !data.sin_asignacion && (
           <>
-            <div className="bg-indigo-600 text-white p-4 rounded-xl shadow-lg mb-6 flex justify-between items-center">
+            <div className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white p-5 rounded-2xl shadow-lg mb-6 flex justify-between items-center">
               <div>
-                <span className="text-indigo-200 text-xs font-bold uppercase tracking-wider">
+                <span className="text-white/80 text-[10px] font-bold uppercase tracking-wider mb-1 block">
                   Tu zona hoy
                 </span>
-                <h2 className="text-xl font-black">{data.zona.nombre}</h2>
+                <h2 className="text-xl font-black leading-none mb-1">
+                  {data.zona.nombre}
+                </h2>
               </div>
-              <div className="bg-indigo-700 px-3 py-1 rounded-lg text-sm font-bold border border-indigo-500">
-                {data.habitaciones.length} Hab.
+              <div className="bg-white/20 backdrop-blur-md w-14 h-14 rounded-full flex flex-col items-center justify-center border border-white/30 shadow-inner shrink-0">
+                <span className="text-xl font-black leading-none">
+                  {data.habitaciones.length}
+                </span>
+                <span className="text-[9px] uppercase font-bold leading-none mt-1">
+                  Hab.
+                </span>
               </div>
             </div>
 
@@ -256,7 +215,7 @@ export default function CamaristaView({ usuarioActual }) {
               {data.habitaciones.map((hab) => {
                 const badgeColor =
                   COLORES_ESTATUS[hab.estatus_operativo] ||
-                  "bg-slate-100 text-slate-800";
+                  "bg-slate-700 text-slate-300";
                 const esLimpia = hab.estatus_operativo === "Limpia";
                 const enProceso = hab.estatus_operativo === "En Proceso";
                 const estaSubiendo = subiendoFoto === hab.id;
@@ -264,46 +223,60 @@ export default function CamaristaView({ usuarioActual }) {
                 return (
                   <div
                     key={hab.id}
-                    className={`bg-white rounded-xl p-4 shadow-md border transition-all ${esLimpia ? "opacity-70 border-slate-200" : "border-slate-300"}`}
+                    className={`bg-white dark:bg-[#1c2130] rounded-2xl p-4 shadow-lg border transition-all ${esLimpia ? "opacity-60 border-emerald-900/50" : "border-slate-200 dark:border-slate-700/50"}`}
                   >
-                    <div className="flex justify-between items-start mb-3">
+                    <div className="flex justify-between items-start mb-4 border-b border-slate-100 dark:border-slate-700/50 pb-3">
                       <div>
-                        <span className="text-2xl font-black text-slate-800">
-                          Hab. {hab.numero}
-                        </span>
-                        <span className="block text-xs font-semibold text-slate-400 uppercase mt-0.5">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-slate-800 dark:text-white">
+                            {hab.numero}
+                          </span>
+                        </div>
+                        <span className="block text-[11px] font-bold text-slate-400 uppercase mt-1 tracking-wider">
                           {hab.tipo}
                         </span>
                       </div>
                       <span
-                        className={`text-xs font-bold px-2.5 py-1 rounded-full border ${badgeColor}`}
+                        className={`text-[10px] font-black px-3 py-1.5 rounded-full border uppercase tracking-wider shadow-sm ${badgeColor}`}
                       >
                         {hab.estatus_operativo}
                       </span>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex gap-2">
+                    {/* BOTONES CON GRID RÍGIDO PARA MÓVIL */}
+                    <div
+                      className={`grid gap-2 items-stretch mt-2 ${esLimpia ? "grid-cols-[1fr_64px]" : "grid-cols-[1fr_64px_64px]"}`}
+                    >
                       {!enProceso && !esLimpia && (
                         <button
                           onClick={() => setHabitacionAEscanear(hab.id)}
-                          className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-3 rounded-lg text-sm shadow flex justify-center gap-1.5"
+                          className="bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-lg flex items-center justify-center gap-1.5 p-2 transition-transform active:scale-95"
                         >
-                          <span>📷</span> Escanear para Iniciar
+                          <span className="text-xl">📷</span>
+                          <span className="text-[10px] leading-[1.1] text-left uppercase font-black tracking-wide">
+                            Escanear e<br />
+                            Iniciar
+                          </span>
                         </button>
                       )}
 
                       {enProceso && (
                         <button
                           onClick={() => handleCambioEstatus(hab.id, "Limpia")}
-                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-3 rounded-lg text-sm shadow flex justify-center gap-1.5 animate-pulse"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-lg flex items-center justify-center gap-1.5 p-2 animate-pulse transition-transform active:scale-95"
                         >
-                          <span>✨</span> Marcar Limpia
+                          <span className="text-xl">✨</span>
+                          <span className="text-[10px] leading-[1.1] text-left uppercase font-black tracking-wide">
+                            Finalizar
+                            <br />
+                            Limpieza
+                          </span>
                         </button>
                       )}
 
                       {esLimpia && (
-                        <div className="flex-1 text-center py-2 text-emerald-600 font-bold text-sm bg-emerald-50 rounded-lg border border-emerald-200">
-                          ✓ Terminada
+                        <div className="flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-xs bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800/50 p-2">
+                          ✓ Limpieza Terminada
                         </div>
                       )}
 
@@ -320,19 +293,25 @@ export default function CamaristaView({ usuarioActual }) {
                           document.getElementById(`camara-${hab.id}`).click()
                         }
                         disabled={estaSubiendo}
-                        title="Evidencia"
-                        className="bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700 font-bold p-2.5 rounded-lg text-sm border flex justify-center"
+                        className="bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600/50 text-slate-700 dark:text-slate-300 rounded-xl flex flex-col items-center justify-center py-1.5 transition-transform active:scale-95"
                       >
-                        {estaSubiendo ? "⏳" : "📸"}
+                        <span className="text-lg mb-0.5">
+                          {estaSubiendo ? "⏳" : "📸"}
+                        </span>
+                        <span className="text-[9px] font-bold tracking-wider">
+                          FOTOS
+                        </span>
                       </button>
 
                       {!esLimpia && (
                         <button
                           onClick={() => setModalDano(hab.id)}
-                          title="Reportar Daño"
-                          className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-bold p-2.5 rounded-lg text-sm transition-colors"
+                          className="bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-xl flex flex-col items-center justify-center py-1.5 transition-transform active:scale-95"
                         >
-                          ⚠️
+                          <span className="text-lg mb-0.5">⚠️</span>
+                          <span className="text-[9px] font-bold tracking-wider">
+                            REPORTAR
+                          </span>
                         </button>
                       )}
                     </div>
@@ -344,7 +323,6 @@ export default function CamaristaView({ usuarioActual }) {
         )}
       </div>
 
-      {/* MODAL DE REPORTES DE DAÑO REUTILIZABLE */}
       {modalDano && (
         <ModalReporteDano
           habitacionId={modalDano}
@@ -353,22 +331,16 @@ export default function CamaristaView({ usuarioActual }) {
         />
       )}
 
-      {/* MODAL DE VALIDACIÓN DE PRESENCIA CON CÁMARA */}
       {habitacionAEscanear && (
         <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 animate-fade-in-up">
           <h3 className="text-white font-black text-xl mb-6 flex items-center gap-2">
             <span>📷</span> Escanea la puerta
           </h3>
-
           <div className="w-full max-w-sm bg-black rounded-2xl overflow-hidden shadow-2xl border-4 border-amber-500 relative">
             <Scanner
               onScan={handleValidarPresencia}
               formats={["qr_code"]}
-              components={{
-                audio: true,
-                onOff: true,
-                torch: true,
-              }}
+              components={{ audio: true, onOff: true, torch: true }}
             />
             <div className="absolute top-0 left-0 right-0 bg-black/60 p-2 text-center">
               <p className="text-amber-400 text-xs font-bold uppercase tracking-widest">
@@ -376,7 +348,6 @@ export default function CamaristaView({ usuarioActual }) {
               </p>
             </div>
           </div>
-
           <button
             onClick={() => setHabitacionAEscanear(null)}
             className="mt-8 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-colors"
