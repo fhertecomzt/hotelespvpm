@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import BitacoraView from "./BitacoraView";
 import * as XLSX from "xlsx";
 import { alertaToast } from "./utils";
+import { Link } from "react-router-dom";
 
 const API_URL = "/sistema/swaos-api";
 
@@ -389,7 +390,7 @@ export default function DashboardView({ usuarioActual }) {
               <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 p-6 rounded-3xl space-y-4 flex flex-col justify-between shadow-sm transition-all">
                 <div>
                   <h3 className="font-black text-lg text-slate-800 dark:text-white border-b border-slate-100 dark:border-slate-700/80 pb-3 mb-4">
-                    📍 Estatus de Inventario
+                    📍 Estatus de Habitaciones
                   </h3>
                   <div className="space-y-3">
                     {[

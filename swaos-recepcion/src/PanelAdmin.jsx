@@ -17,6 +17,8 @@ const ROLES_COLORES = {
     "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-500/40",
   Camarista:
     "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-500/40",
+  Almacenista:
+    "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900/40 dark:text-teal-300 dark:border-teal-500/40",
 };
 
 export default function PanelAdmin({ usuarioActual }) {
@@ -145,6 +147,8 @@ export default function PanelAdmin({ usuarioActual }) {
     { id: "gestionar_zonas", label: "Configurar Zonas y Tipos" },
     { id: "gestionar_habitaciones", label: "Editar Cuartos y QR" },
     { id: "asignar_camaristas", label: "Asignar Zonas (Ama de Llaves)" },
+    { id: "ver_inventario", label: "📦 Ver Almacén e Inventario" },
+    { id: "gestionar_inventario", label: "➕ Registrar Entradas/Salidas" },
   ];
 
   // FUNCIÓN PARA MARCAR/DESMARCAR CASILLAS
@@ -1346,6 +1350,11 @@ export default function PanelAdmin({ usuarioActual }) {
                       esAdmin ||
                       usuarioActual?.rol === "Mantenimiento") && (
                       <option value="Mantenimiento">🛠️ Mantenimiento</option>
+                    )}
+
+                    {/* NUEVO: ALMACENISTA (Solo visible para Jefes) */}
+                    {(esSuperusuario || esAdmin) && (
+                      <option value="Almacenista">📦 Almacenista</option>
                     )}
 
                     {/* El Ama de Llaves (para crear supervisoras), Admin y Superusuario pueden crear Amas de Llaves */}

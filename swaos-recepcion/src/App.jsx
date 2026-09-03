@@ -9,6 +9,7 @@ import MantenimientoView from "./MantenimientoView";
 import PanelAdmin from "./PanelAdmin";
 import DashboardView from "./DashboardView";
 import PrivacidadView from "./PrivacidadView";
+import InventarioView from "./InventarioView";
 
 function App() {
   const [usuarioActual, setUsuarioActual] = useState(() => {
@@ -154,6 +155,21 @@ return (
               <span className="text-sm">🏠</span>
             </Link>
 
+            {/* NUEVO: Botón Inventario (Solo roles autorizados o con permiso específico) */}
+            {(usuarioActual.rol === "Administrador" ||
+              usuarioActual.rol === "Superusuario" ||
+              usuarioActual.rol === "Almacenista" ||
+              (usuarioActual.permisos &&
+                usuarioActual.permisos.includes("ver_inventario"))) && (
+              <Link
+                to="/inventario"
+                title="Inventario y Almacén"
+                className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded-lg border border-emerald-500/40 transition-colors shrink-0"
+              >
+                <span className="text-sm">📦</span>
+              </Link>
+            )}
+
             {/* 3. Botón Admin (Conserva tu lógica de seguridad) */}
             {(usuarioActual.rol === "Administrador" ||
               usuarioActual.rol === "Superusuario" ||
@@ -217,7 +233,9 @@ return (
                       ? "/mantenimiento"
                       : usuarioActual.rol === "Camarista"
                         ? "/camarista"
-                        : "/recepcion"
+                        : usuarioActual.rol === "Almacenista" 
+                          ? "/inventario" 
+                          : "/recepcion"
                 }
                 replace
               />
@@ -320,6 +338,19 @@ return (
         />
         <Route path="/privacidad" element={<PrivacidadView />} />
         <Route path="*" element={<Navigate to="/" replace />} />
+
+        {/* Inventario */}
+        <Route
+          path="/inventario"
+          element={
+            <RutaProtegida
+              rolesPermitidos={["Administrador", "Superusuario", "Almacenista"]}
+              permisosPermitidos={["ver_inventario", "gestionar_inventario"]}
+            >
+              <InventarioView usuarioActual={usuarioActual} />
+            </RutaProtegida>
+          }
+        />
       </Routes>
     </div>
   </BrowserRouter>
