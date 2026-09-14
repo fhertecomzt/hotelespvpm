@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { alertaToast } from "./utils";
 import ModalNuevoProducto from "./ModalNuevoProducto";
 import ModalMovimiento from "./ModalMovimiento";
+import ModalEditarProducto from "./ModalEditarProducto";
 
 // Detecta automáticamente si estás en local o en producción
 const API_URL = import.meta.env.DEV
@@ -52,6 +53,7 @@ export default function InventarioView({ usuarioActual }) {
         if (!silencioso) setCargando(false);
       });
   };
+  const [productoEditando, setProductoEditando] = useState(null);
 
   useEffect(() => {
     document.title = "SWAOS | Almacén e Inventario";
@@ -154,21 +156,45 @@ export default function InventarioView({ usuarioActual }) {
               const minimo = parseFloat(prod.stock_minimo);
               const enPeligro = stock <= minimo;
               const sinStock = stock <= 0;
+              const esInactivo = prod.estatus === "Inactivo";
 
               return (
                 <div
                   key={prod.id}
-                  className="bg-white dark:bg-slate-800 rounded-3xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:shadow-md transition-all"
+                  className={`bg-white dark:bg-slate-800 rounded-3xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:shadow-md transition-all ${esInactivo ? "opacity-60 grayscale-[50%]" : ""}`}
                 >
                   <div className="flex justify-between items-start mb-3">
-                    <span className="text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 px-2 py-1 rounded-lg">
-                      {prod.categoria}
-                    </span>
-                    {prod.codigo_qr && (
-                      <span className="text-lg" title={`QR: ${prod.codigo_qr}`}>
-                        🔳
+                    <div className="flex gap-2 items-center">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 px-2 py-1 rounded-lg">
+                        {prod.categoria}
                       </span>
-                    )}
+                      {esInactivo && (
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-red-100 text-red-600 px-2 py-1 rounded-lg">
+                          Inactivo
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      {prod.codigo_qr && (
+                        <span
+                          className="text-lg"
+                          title={`QR: ${prod.codigo_qr}`}
+                        >
+                          🔳
+                        </span>
+                      )}
+                      {/* NUEVO BOTÓN DE EDITAR */}
+                      {esAdministrador && (
+                        <button
+                          onClick={() => setProductoEditando(prod)}
+                          className="text-slate-400 hover:text-indigo-500 transition-colors"
+                          title="Editar producto"
+                        >
+                          ✏️
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <h3 className="text-lg font-black leading-tight mb-4">
@@ -239,6 +265,7 @@ export default function InventarioView({ usuarioActual }) {
           </div>
         )}
       </div>
+
       {/* MODAL NUEVO PRODUCTO */}
       {mostrarModalNuevo && (
         <ModalNuevoProducto
@@ -247,6 +274,7 @@ export default function InventarioView({ usuarioActual }) {
           onSuccess={() => cargarInventario(true)}
         />
       )}
+
       {/* MODAL ENTRADA/SALIDA DE STOCK */}
       {movimientoActivo && (
         <ModalMovimiento
@@ -254,6 +282,15 @@ export default function InventarioView({ usuarioActual }) {
           tipo={movimientoActivo.tipo}
           usuarioActual={usuarioActual}
           onClose={() => setMovimientoActivo(null)}
+          onSuccess={() => cargarInventario(true)}
+        />
+      )}
+
+      {/* MODAL EDITAR PRODUCTO */}
+      {productoEditando && (
+        <ModalEditarProducto
+          producto={productoEditando}
+          onClose={() => setProductoEditando(null)}
           onSuccess={() => cargarInventario(true)}
         />
       )}
