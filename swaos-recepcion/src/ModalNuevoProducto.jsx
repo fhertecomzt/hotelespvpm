@@ -20,30 +20,32 @@ export default function ModalNuevoProducto({
 
   // En ModalNuevoProducto.jsx, agrega un estado para hotelId
   const [hotelId, setHotelId] = useState(usuarioActual?.hotel_id || 1);
-  // NUEVO: Estado para guardar la lista de hoteles
+  // Estado para guardar la lista de hoteles
   const [hoteles, setHoteles] = useState([]);
 
   const token = localStorage.getItem("swaos_token");
 
-  // NUEVO: Cargar los hoteles automáticamente al abrir el modal
-  useEffect(() => {
-    // Solo los jefes necesitan ver la lista de hoteles
-    if (
-      usuarioActual?.rol === "Superusuario" ||
-      usuarioActual?.rol === "Administrador"
-    ) {
-      fetch(`${API_URL}/gestion_inventario.php?accion=leer_todo&hotel_id=0`, {
-        headers: { Authorization: `Bearer ${token}` },
+  // Cargar los hoteles automáticamente al abrir el modal
+useEffect(() => {
+  // Le damos acceso al Almacenista también
+  const esGestor =
+    usuarioActual?.rol === "Superusuario" ||
+    usuarioActual?.rol === "Administrador" ||
+    usuarioActual?.rol === "Almacenista";
+
+  if (esGestor) {
+    fetch(`${API_URL}/gestion_inventario.php?accion=leer_todo&hotel_id=0`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.hoteles) {
+          setHoteles(data.hoteles);
+        }
       })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.hoteles) {
-            setHoteles(data.hoteles);
-          }
-        })
-        .catch((err) => console.error("Error al cargar hoteles:", err));
-    }
-  }, [usuarioActual, token]);
+      .catch((err) => console.error("Error al cargar hoteles:", err));
+  }
+}, [usuarioActual, token]);
 
   const handleGuardar = async (e) => {
     e.preventDefault();
@@ -97,9 +99,10 @@ export default function ModalNuevoProducto({
         </h3>
 
         <form onSubmit={handleGuardar} className="space-y-4">
-          {/* Mostrar el selector de hotel solo si es superusuario o admin */}
+          {/* Mostrar el selector de hotel a jefes y almacenista */}
           {(usuarioActual?.rol === "Superusuario" ||
-            usuarioActual?.rol === "Administrador") && (
+            usuarioActual?.rol === "Administrador" ||
+            usuarioActual?.rol === "Almacenista") && (
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
                 Asignar al Inventario del Hotel

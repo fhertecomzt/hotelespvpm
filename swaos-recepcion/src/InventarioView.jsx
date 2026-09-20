@@ -48,15 +48,19 @@ export default function InventarioView({ usuarioActual }) {
   const esAdministrador =
     usuarioActual?.rol === "Administrador" ||
     usuarioActual?.rol === "Superusuario";
+  //¿Quién puede gestionar el catálogo completo?
+  const esGestorAlmacen =
+    esAdministrador || usuarioActual?.rol === "Almacenista";
+    
   const tienePermisoInventario =
     usuarioActual?.permisos?.includes("ver_inventario");
   const accesoPermitido = esAdministrador || tienePermisoInventario;
   const [mostrarModalNuevo, setMostrarModalNuevo] = useState(false);
   const [movimientoActivo, setMovimientoActivo] = useState(null);
 
-  // Cargar lista de hoteles para el selector (Solo Administradores)
+  // Cargar lista de hoteles para el selector
   useEffect(() => {
-    if (esAdministrador) {
+    if (esGestorAlmacen) {
       fetch(`${API_URL}/gestion_inventario.php?accion=leer_todo&hotel_id=0`, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -169,7 +173,7 @@ export default function InventarioView({ usuarioActual }) {
                 {modoVista === "tabla" ? "📱 Ver Tarjetas" : "📄 Ver Tabla"}
               </button>
 
-              {esAdministrador && (
+              {esGestorAlmacen && (
                 <button
                   onClick={() => setMostrarModalNuevo(true)}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md transition-all"
@@ -182,7 +186,7 @@ export default function InventarioView({ usuarioActual }) {
 
           <div className="flex flex-col md:flex-row gap-3 mt-2 border-t border-slate-100 dark:border-slate-700 pt-4">
             {/* 1. SELECTOR DE HOTELES (Alineado a la izquierda, tamaño fijo en desktop) */}
-            {esAdministrador && (
+            {esGestorAlmacen && (
               <select
                 value={filtroHotel}
                 onChange={(e) => setFiltroHotel(e.target.value)}
@@ -237,9 +241,9 @@ export default function InventarioView({ usuarioActual }) {
                         <th className="p-4">SKU / QR</th>
                         <th className="p-4">Producto</th>
                         <th className="p-4">Categoría</th>
-                        {esAdministrador && <th className="p-4">Hotel</th>}
+                        <th className="p-4">Hotel</th>
                         <th className="p-4">Stock Actual</th>
-                        <th className="p-4 text-right">Acciones</th>
+                        <th className="p-4 text-center">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -275,7 +279,7 @@ export default function InventarioView({ usuarioActual }) {
                                 {prod.categoria}
                               </span>
                             </td>
-                            {esAdministrador && (
+                            {esGestorAlmacen && (
                               <td className="p-4">
                                 <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700/50 px-2 py-1 rounded-lg">
                                   {getNombreHotel(prod.hotel_id)}
@@ -333,7 +337,7 @@ export default function InventarioView({ usuarioActual }) {
                               >
                                 ➕ Entrada
                               </button>
-                              {esAdministrador && (
+                              {esGestorAlmacen && (
                                 <button
                                   onClick={() => setProductoEditando(prod)}
                                   className="text-slate-400 hover:text-indigo-500 transition-colors px-2 text-base"
@@ -369,7 +373,7 @@ export default function InventarioView({ usuarioActual }) {
                           <span className="text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 px-2 py-1 rounded-lg">
                             {prod.categoria}
                           </span>
-                          {esAdministrador && (
+                          {esGestorAlmacen && (
                             <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700/50 px-2 py-1 rounded-lg">
                               {getNombreHotel(prod.hotel_id)}
                             </span>
@@ -390,7 +394,7 @@ export default function InventarioView({ usuarioActual }) {
                               🔳
                             </span>
                           )}
-                          {esAdministrador && (
+                          {esGestorAlmacen && (
                             <button
                               onClick={() => setProductoEditando(prod)}
                               className="text-slate-400 hover:text-indigo-500 transition-colors"
