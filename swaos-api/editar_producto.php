@@ -23,6 +23,36 @@ try {
     exit;
   }
 
+  // ==========================================
+  // BLOQUE DE VALIDACIONES
+  // ==========================================
+
+  // 1. Averiguar a qué hotel pertenece este producto actualmente
+  $hotel_stmt = $pdo->prepare("SELECT hotel_id FROM inventario_productos WHERE id = ?");
+  $hotel_stmt->execute([$id]);
+  $producto_actual = $hotel_stmt->fetch(PDO::FETCH_ASSOC);
+
+  if (!$producto_actual) {
+    echo json_encode(['success' => false, 'message' => 'El producto no existe o fue eliminado.']);
+    exit;
+  }
+
+  // Guardamos el hotel_id para usarlo en la validación
+  $hotel_id = $producto_actual['hotel_id'];
+
+  // 2. Validación anti-duplicados en el mismo hotel (Ignorando a sí mismo)
+  $check_stmt = $pdo->prepare("SELECT id FROM inventario_productos WHERE LOWER(nombre) = LOWER(?) AND hotel_id = ? AND id != ?");
+  $check_stmt->execute([$nombre, $hotel_id, $id]);
+
+  if ($check_stmt->fetch()) {
+    echo json_encode(['success' => false, 'message' => 'Ya existe otro producto llamado "' . $nombre . '" en este hotel.']);
+    exit;
+  }
+
+  // ==========================================
+  // ACTUALIZACIÓN EN BASE DE DATOS
+  // ==========================================
+
   $stmt = $pdo->prepare("
         UPDATE inventario_productos 
         SET nombre = ?, categoria = ?, unidad_medida = ?, stock_minimo = ?, codigo_qr = ?, estatus = ?

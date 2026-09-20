@@ -20,14 +20,45 @@ try {
   $hotel_id = intval($data['hotel_id'] ?? 1);
   $usuario_id = intval($data['usuario_id'] ?? 1);
 
+  // ==========================================
+  // BLOQUE DE VALIDACIONES ESTRICTAS
+  // ==========================================
+
+  // 1. Validación de campos obligatorios
   if (empty($nombre)) {
     echo json_encode(['success' => false, 'message' => 'El nombre del producto es obligatorio.']);
     exit;
   }
 
+  // 2. Validación de longitud máxima (150 caracteres según tu BD)
+  if (strlen($nombre) > 150) {
+    echo json_encode(['success' => false, 'message' => 'El nombre es demasiado largo (máximo 150 caracteres).']);
+    exit;
+  }
+
+  // 3. Validación anti-números negativos
+  if ($stock_inicial < 0 || $stock_minimo < 0) {
+    echo json_encode(['success' => false, 'message' => 'El stock inicial y la alerta mínima no pueden ser valores negativos.']);
+    exit;
+  }
+
+  // 4. Validación anti-duplicados en el mismo hotel
+  // Usamos LOWER() para que "Cloro" y "CLORO" se detecten como el mismo producto
+  $check_stmt = $pdo->prepare("SELECT id FROM inventario_productos WHERE LOWER(nombre) = LOWER(?) AND hotel_id = ?");
+  $check_stmt->execute([$nombre, $hotel_id]);
+
+  if ($check_stmt->fetch()) {
+    echo json_encode(['success' => false, 'message' => 'Ya existe un producto llamado "' . $nombre . '" en este hotel.']);
+    exit;
+  }
+
+  // ==========================================
+  // INSERCIÓN A BASE DE DATOS
+  // ==========================================
+
   $pdo->beginTransaction();
 
-  // 1. Guardar en el catálogo
+  // Guardar en el catálogo
   $stmt = $pdo->prepare("
         INSERT INTO inventario_productos (hotel_id, codigo_qr, nombre, categoria, unidad_medida, stock_actual, stock_minimo) 
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -36,7 +67,7 @@ try {
 
   $producto_id = $pdo->lastInsertId();
 
-  // 2. Si nace con stock, registrar el movimiento inicial en el Kardex
+  // Si nace con stock, registrar el movimiento inicial en el Kardex
   if ($stock_inicial > 0) {
     $mov_stmt = $pdo->prepare("
             INSERT INTO inventario_movimientos (producto_id, usuario_id, tipo_movimiento, cantidad, stock_anterior, stock_nuevo, motivo, notas) 

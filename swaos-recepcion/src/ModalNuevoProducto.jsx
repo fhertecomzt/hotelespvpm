@@ -128,6 +128,8 @@ export default function ModalNuevoProducto({
             </label>
             <input
               type="text"
+              maxLength={150} // <-- Límite físico en el navegador
+              autoCapitalize="sentences" // <-- Ayuda en teclados móviles
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Ej. Limpiador Multiusos Fabuloso..."

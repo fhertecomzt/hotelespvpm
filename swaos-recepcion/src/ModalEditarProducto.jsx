@@ -73,6 +73,8 @@ export default function ModalEditarProducto({ producto, onClose, onSuccess }) {
             </label>
             <input
               type="text"
+              maxLength={150} // <-- Límite físico en el navegador
+              autoCapitalize="sentences" // <-- Ayuda en teclados móviles
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl p-2.5 text-sm outline-none font-semibold text-slate-800 dark:text-white"
