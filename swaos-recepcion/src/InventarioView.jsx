@@ -3,6 +3,7 @@ import { alertaToast } from "./utils";
 import ModalNuevoProducto from "./ModalNuevoProducto";
 import ModalMovimiento from "./ModalMovimiento";
 import ModalEditarProducto from "./ModalEditarProducto";
+import { Link } from "react-router-dom";
 
 // Detecta automáticamente si estás en local o en producción
 const API_URL = import.meta.env.DEV
@@ -25,6 +26,15 @@ export default function InventarioView({ usuarioActual }) {
   const [modoVista, setModoVista] = useState(() => {
     return window.innerWidth >= 1024 ? "tabla" : "tarjetas";
   });
+
+  // Estados de Paginación
+  const [paginaActual, setPaginaActual] = useState(1);
+  const elementosPorPagina = 7;
+
+  // Reiniciar a la página 1 cuando el usuario escriba en el buscador o cambie un filtro
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [busqueda, filtroCategoria, filtroHotel]);
 
   // Efecto "Responsive" para cuando el usuario gira la tablet o redimensiona la ventana
   useEffect(() => {
@@ -51,7 +61,7 @@ export default function InventarioView({ usuarioActual }) {
   //¿Quién puede gestionar el catálogo completo?
   const esGestorAlmacen =
     esAdministrador || usuarioActual?.rol === "Almacenista";
-    
+
   const tienePermisoInventario =
     usuarioActual?.permisos?.includes("ver_inventario");
   const accesoPermitido = esAdministrador || tienePermisoInventario;
@@ -140,6 +150,21 @@ export default function InventarioView({ usuarioActual }) {
     return coincideBusqueda && coincideCategoria && coincideHotel;
   });
 
+  // Lógica de recortes para Paginación
+  const indiceUltimoElemento = paginaActual * elementosPorPagina;
+  const indicePrimerElemento = indiceUltimoElemento - elementosPorPagina;
+
+  // Esta es la nueva lista que enviaremos a la pantalla (solo 12 elementos)
+  const productosPaginados = productosFiltrados.slice(
+    indicePrimerElemento,
+    indiceUltimoElemento,
+  );
+
+  // Calcular el total de páginas necesarias
+  const totalPaginas = Math.ceil(
+    productosFiltrados.length / elementosPorPagina,
+  );
+
   const categorias = [
     "Todos",
     "Limpieza",
@@ -163,16 +188,10 @@ export default function InventarioView({ usuarioActual }) {
                 Gestión de stock, entradas y salidas de material
               </p>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() =>
-                  setModoVista(modoVista === "tabla" ? "tarjetas" : "tabla")
-                }
-                className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all"
-              >
-                {modoVista === "tabla" ? "📱 Ver Tarjetas" : "📄 Ver Tabla"}
-              </button>
 
+            {/* CONTENEDOR DE BOTONES */}
+            <div className="flex flex-wrap gap-2 justify-end">
+              {/* Botón Nuevo Producto */}
               {esGestorAlmacen && (
                 <button
                   onClick={() => setMostrarModalNuevo(true)}
@@ -181,6 +200,24 @@ export default function InventarioView({ usuarioActual }) {
                   + Nuevo Producto
                 </button>
               )}
+
+              {/* Botón al Kardex */}
+              <Link
+                to="/kardex"
+                className="bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/60 px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center"
+              >
+                📋 Kardex
+              </Link>
+
+              {/* Botón de Vistas */}
+              <button
+                onClick={() =>
+                  setModoVista(modoVista === "tabla" ? "tarjetas" : "tabla")
+                }
+                className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all"
+              >
+                {modoVista === "tabla" ? "📱 Modo Tarjetas" : "📄 Modo Tabla"}
+              </button>
             </div>
           </div>
 
@@ -247,7 +284,7 @@ export default function InventarioView({ usuarioActual }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                      {productosFiltrados.map((prod) => {
+                      {productosPaginados.map((prod) => {
                         const stock = parseFloat(prod.stock_actual);
                         const minimo = parseFloat(prod.stock_minimo);
                         const enPeligro = stock <= minimo;
@@ -356,7 +393,7 @@ export default function InventarioView({ usuarioActual }) {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {productosFiltrados.map((prod) => {
+                {productosPaginados.map((prod) => {
                   const stock = parseFloat(prod.stock_actual);
                   const minimo = parseFloat(prod.stock_minimo);
                   const enPeligro = stock <= minimo;
@@ -474,7 +511,34 @@ export default function InventarioView({ usuarioActual }) {
             )}
           </>
         )}
+        {/* CONTROLES DE PAGINACIÓN */}
+        {totalPaginas > 1 && (
+          <div className="flex justify-center items-center gap-4 mt-6 mb-2">
+            <button
+              onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
+              disabled={paginaActual === 1}
+              className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm transition-all font-bold text-sm"
+            >
+              ← Anterior
+            </button>
+
+            <span className="text-sm font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-4 py-2 rounded-xl">
+              Página {paginaActual} de {totalPaginas}
+            </span>
+
+            <button
+              onClick={() =>
+                setPaginaActual((p) => Math.min(totalPaginas, p + 1))
+              }
+              disabled={paginaActual === totalPaginas}
+              className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm transition-all font-bold text-sm"
+            >
+              Siguiente →
+            </button>
+          </div>
+        )}
       </div>
+      {/* <-- Fin del div max-w-7xl */}
 
       {/* MODAL NUEVO PRODUCTO */}
       {mostrarModalNuevo && (
@@ -484,7 +548,6 @@ export default function InventarioView({ usuarioActual }) {
           onSuccess={() => cargarInventario(true)}
         />
       )}
-
       {/* MODAL ENTRADA/SALIDA DE STOCK */}
       {movimientoActivo && (
         <ModalMovimiento
@@ -495,7 +558,6 @@ export default function InventarioView({ usuarioActual }) {
           onSuccess={() => cargarInventario(true)}
         />
       )}
-
       {/* MODAL EDITAR PRODUCTO */}
       {productoEditando && (
         <ModalEditarProducto

@@ -10,6 +10,7 @@ import PanelAdmin from "./PanelAdmin";
 import DashboardView from "./DashboardView";
 import PrivacidadView from "./PrivacidadView";
 import InventarioView from "./InventarioView";
+import KardexView from "./KardexView";
 
 function App() {
   const [usuarioActual, setUsuarioActual] = useState(() => {
@@ -233,8 +234,8 @@ return (
                       ? "/mantenimiento"
                       : usuarioActual.rol === "Camarista"
                         ? "/camarista"
-                        : usuarioActual.rol === "Almacenista" 
-                          ? "/inventario" 
+                        : usuarioActual.rol === "Almacenista"
+                          ? "/inventario"
                           : "/recepcion"
                 }
                 replace
@@ -351,6 +352,20 @@ return (
             </RutaProtegida>
           }
         />
+
+        {/* Kardex / Bitácora */}
+        <Route
+          path="/kardex"
+          element={
+            <RutaProtegida
+              rolesPermitidos={["Administrador", "Superusuario", "Almacenista"]}
+              permisosPermitidos={["ver_inventario", "gestionar_inventario"]}
+            >
+              <KardexView usuarioActual={usuarioActual} />
+            </RutaProtegida>
+          }
+        />
+
       </Routes>
     </div>
   </BrowserRouter>
