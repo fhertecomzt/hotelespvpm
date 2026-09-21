@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 // Opcional: Si usas alertas, impórtalas. Si no, puedes quitar esta línea.
 // import { alertaToast } from "./utils";
 import { Link } from "react-router-dom";
+import ModalExportarKardex from "./ModalExportarKardex";
 
 const API_URL = import.meta.env.DEV
   ? "http://localhost/hotelespvpm/sistema/swaos-api"
@@ -10,6 +11,7 @@ const API_URL = import.meta.env.DEV
 export default function KardexView({ usuarioActual }) {
   const [movimientos, setMovimientos] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [mostrarModalExportar, setMostrarModalExportar] = useState(false);
 
   // Filtros
   const [busqueda, setBusqueda] = useState("");
@@ -178,13 +180,21 @@ export default function KardexView({ usuarioActual }) {
               </select>
             )}
 
-            <input
-              type="text"
-              placeholder="🔍 Buscar por producto, usuario o motivo..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="flex-1 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
+            <div className="flex-1 flex gap-2">
+              <input
+                type="search"
+                placeholder="🔍 Buscar por producto, usuario o motivo..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="flex-1 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+              <button
+                onClick={() => setMostrarModalExportar(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md transition-all whitespace-nowrap flex items-center gap-2"
+              >
+                🖨️ Exportar
+              </button>
+            </div>
           </div>
         </div>
 
@@ -316,6 +326,18 @@ export default function KardexView({ usuarioActual }) {
             </button>
           </div>
         )}
+
+        {/* MODAL DE EXPORTACIÓN */}
+        {mostrarModalExportar && (
+          <ModalExportarKardex
+            movimientos={movimientos}
+            hoteles={hoteles}
+            filtroHotelActual={filtroHotel}
+            esGestorAlmacen={esGestorAlmacen}
+            onClose={() => setMostrarModalExportar(false)}
+          />
+        )}
+        
       </div>
     </div>
   );
