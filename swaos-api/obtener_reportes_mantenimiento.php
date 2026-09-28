@@ -29,6 +29,7 @@ $sql = "
         r.foto_resolucion_url,
         r.estatus,
         r.fecha_reporte,
+        r.fecha_diagnostico,
         r.fecha_resolucion,
         r.diagnostico,
         u_rep.nombre AS rep_nombre,

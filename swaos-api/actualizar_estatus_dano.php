@@ -46,7 +46,12 @@ try {
   try {
     $pdo->exec("ALTER TABLE reportes_danos ADD COLUMN diagnostico TEXT DEFAULT NULL AFTER descripcion");
   } catch (Exception $e) {
-  } // ASEGURAMOS LA NUEVA COLUMNA
+  }
+  // Aseguramos la columna de fecha_diagnostico
+  try {
+    $pdo->exec("ALTER TABLE reportes_danos ADD COLUMN fecha_diagnostico DATETIME DEFAULT NULL AFTER diagnostico");
+  } catch (Exception $e) {
+  }
 
   // Guardar en tu carpeta real: evidencias_danos/
   $foto_resolucion_sql = "";
@@ -72,8 +77,8 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
   } else if ($estatus === 'En Reparación') {
-    // NUEVA SECCIÓN: Guarda el texto capturado en el modal de Mantenimiento
-    $stmt = $pdo->prepare("UPDATE reportes_danos SET estatus = ?, diagnostico = ?, resuelto_por = ? WHERE id = ?");
+    // ACTUALIZADO: Guarda el texto capturado, el usuario y la FECHA DE DIAGNÓSTICO (NOW)
+    $stmt = $pdo->prepare("UPDATE reportes_danos SET estatus = ?, diagnostico = ?, fecha_diagnostico = NOW(), resuelto_por = ? WHERE id = ?");
     $stmt->execute([$estatus, $diagnostico, $resuelto_por, $reporte_id]);
   } else {
     // Cualquier otro estatus

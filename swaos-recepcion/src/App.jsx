@@ -11,6 +11,7 @@ import DashboardView from "./DashboardView";
 import PrivacidadView from "./PrivacidadView";
 import InventarioView from "./InventarioView";
 import KardexView from "./KardexView";
+import PlanPreventivoView from "./PlanPreventivoView";
 
 function App() {
   const [usuarioActual, setUsuarioActual] = useState(() => {
@@ -284,6 +285,20 @@ return (
           }
         />
         <Route
+          path="/preventivo"
+          element={
+            <RutaProtegida
+              rolesPermitidos={[
+                "Mantenimiento",
+                "Administrador",
+                "Superusuario",
+              ]}
+            >
+              <PlanPreventivoView usuarioActual={usuarioActual} />
+            </RutaProtegida>
+          }
+        />
+        <Route
           path="/admin"
           element={
             <RutaProtegida
@@ -365,7 +380,6 @@ return (
             </RutaProtegida>
           }
         />
-
       </Routes>
     </div>
   </BrowserRouter>

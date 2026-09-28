@@ -333,11 +333,11 @@ export default function KardexView({ usuarioActual }) {
             movimientos={movimientos}
             hoteles={hoteles}
             filtroHotelActual={filtroHotel}
+            filtroBusquedaActual={busqueda}
             esGestorAlmacen={esGestorAlmacen}
             onClose={() => setMostrarModalExportar(false)}
           />
         )}
-        
       </div>
     </div>
   );
