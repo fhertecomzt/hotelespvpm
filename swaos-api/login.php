@@ -82,7 +82,7 @@ if (isset($data->email) && isset($data->password)) {
         'user_id' => $user['id'],
         'rol' => $user['rol'],
         'hotel_id' => $user['hotel_base_id'],
-        'exp' => time() + (86400 * 7)
+        'exp' => time() + (3600 * 12)
       ];
 
       $token_seguro = generarJWT($payload);
