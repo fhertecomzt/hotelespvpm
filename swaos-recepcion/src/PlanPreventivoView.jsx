@@ -35,13 +35,6 @@ export default function PlanPreventivoView({ usuarioActual }) {
   const audioRef = useRef(new Audio("/alerta.mp3"));
   const [totalUrgencias, setTotalUrgencias] = useState(0);
 
-  // Pedir permiso de notificaciones Push al abrir la pantalla
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
-
   const calcularUrgencia = (fechaProxima) => {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
@@ -55,6 +48,19 @@ export default function PlanPreventivoView({ usuarioActual }) {
     if (diffDias <= 3) return { texto: "Urgente", color: "amber" };
     return { texto: "Al Día", color: "emerald" };
   };
+
+  // Pedir permiso de notificaciones Push al abrir la pantalla
+  useEffect(() => {
+    try {
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    } catch (error) {
+      console.warn(
+        "El navegador móvil no soporta petición nativa de notificaciones.",
+      );
+    }
+  }, []);
 
   // El Radar: Se ejecuta cada vez que 'tareas' cambia
   useEffect(() => {
@@ -80,16 +86,22 @@ export default function PlanPreventivoView({ usuarioActual }) {
           ),
         );
 
-      // Lanzar Notificación de Windows/Mac
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("SWAOS | Tareas Urgentes", {
-          body: `Hay ${urgenciasActuales} rutinas preventivas que requieren atención.`,
-          icon: "/icono-manto.ico",
-        });
+      // 3. Lanzar Notificación de Windows/Mac con Try/Catch
+      try {
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("SWAOS | Tareas Urgentes", {
+            body: `Hay ${urgenciasActuales} rutinas preventivas que requieren atención.`,
+            icon: "/icono-manto.ico",
+          });
+        }
+      } catch (error) {
+        console.warn(
+          "Notificaciones Push no soportadas nativamente en este dispositivo móvil.",
+        );
       }
     }
 
-    // 3. Guardar el nuevo número en la memoria
+    // Guardar el nuevo número en la memoria
     prevAlertasRef.current = urgenciasActuales;
   }, [tareas]);
   // -------------------------------------------------

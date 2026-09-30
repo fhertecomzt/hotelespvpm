@@ -57,9 +57,16 @@ export default function MantenimientoView({ usuarioActual }) {
   const audioRef = useRef(new Audio("/alerta.mp3"));
   const [totalAlertas, setTotalAlertas] = useState(0);
 
+  // Pedir permiso de notificaciones Push al abrir la pantalla
   useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
+    try {
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    } catch (error) {
+      console.warn(
+        "El navegador móvil no soporta petición nativa de notificaciones.",
+      );
     }
   }, []);
 
@@ -76,14 +83,23 @@ export default function MantenimientoView({ usuarioActual }) {
       prevAlertasRef.current !== null &&
       totalRequierenAtencion > prevAlertasRef.current
     ) {
+      // 1. Lanzamos el sonido (Atrapando bloqueos de autoplay)
       audioRef.current
         .play()
         .catch((e) => console.log("Sonido en espera de interacción"));
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("SWAOS | Mantenimiento", {
-          body: `⚠️ Tienes ${pendientes} reportes nuevos y ${enReparacion} en reparación.`,
-          icon: "/icono-manto.ico",
-        });
+
+      // 2. Lanzamos la notificación envuelta en Try/Catch para salvar móviles
+      try {
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("SWAOS | Mantenimiento", {
+            body: `⚠️ Tienes ${pendientes} reportes nuevos y ${enReparacion} en reparación por revisar.`,
+            icon: "/icono-manto.ico",
+          });
+        }
+      } catch (error) {
+        console.warn(
+          "Notificaciones Push no soportadas nativamente en este dispositivo móvil.",
+        );
       }
     }
     prevAlertasRef.current = totalRequierenAtencion;
@@ -188,19 +204,6 @@ export default function MantenimientoView({ usuarioActual }) {
 
     return matchHotel && matchEstatus && matchEmpleado && matchFecha;
   });
-
-  const manejarExportacion = (formato) => {
-    if (reportesAExportar.length === 0) {
-      return alertaToast(
-        "error",
-        "⚠️ No hay datos para exportar con estos filtros.",
-      );
-    }
-    alertaToast("success", `Generando archivo ${formato}...`);
-    // AQUÍ IRÁ TU LLAMADA AL BACKEND PARA GENERAR EL EXCEL O PDF
-    // fetch(`${API_URL}/exportar.php?formato=${formato}&hotel=${expHotel}...`)
-    setTimeout(() => setMostrarModalExportar(false), 1000);
-  };
 
   const confirmarResolucion = async () => {
     if (!reporteSeleccionado) return;
