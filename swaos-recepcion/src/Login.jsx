@@ -2,10 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { alertaToast } from "./utils";
+import RelojChecador from "./RelojChecador";
 
 const API_URL = "/sistema/swaos-api";
 
 export default function Login({ setUsuarioActual }) {
+  // Estado para saber si estamos iniciando sesión o checando tarjeta
+  const [modoVista, setModoVista] = useState("login"); // 'login' | 'checador'
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,10 +26,13 @@ export default function Login({ setUsuarioActual }) {
       setEmail(correoGuardado);
       setRecordar(true);
     }
-    document.title = "SWAOS | Iniciar Sesión";
+    document.title =
+      modoVista === "login"
+        ? "SWAOS | Iniciar Sesión"
+        : "SWAOS | Reloj Checador";
     const favicon = document.getElementById("favicon");
     if (favicon) favicon.href = "public/favicon.svg";
-  }, []);
+  }, [modoVista]);
 
   const handleEmailChange = (e) => {
     const correoLimpio = e.target.value.replace(/[^a-zA-Z0-9@.\-_]/g, "");
@@ -87,8 +94,23 @@ export default function Login({ setUsuarioActual }) {
       });
   };
 
+  // SI EL MODO ES CHECADOR, RENDERIZAMOS EL OTRO COMPONENTE COMPLETAMENTE
+  if (modoVista === "checador") {
+    return <RelojChecador onVolver={() => setModoVista("login")} />;
+  }
+
   return (
-    <div className="min-h-screen flex bg-slate-50 font-sans">
+    <div className="min-h-screen flex bg-slate-50 font-sans relative">
+      {/* ¡AQUÍ ESTÁ EL BOTÓN FLOTANTE QUE FALTABA! */}
+      <div className="absolute top-6 right-6 z-50">
+        <button
+          onClick={() => setModoVista("checador")}
+          className="bg-white/80 backdrop-blur-md border border-slate-200 shadow-lg text-slate-700 hover:text-indigo-600 px-5 py-2.5 rounded-2xl font-black text-sm transition-all flex items-center gap-2 hover:-translate-y-0.5"
+        >
+          <span className="text-xl">📷</span> Reloj Checador Facial
+        </button>
+      </div>
+
       {/* PANEL IZQUIERDO - BRANDING (Oculto en móviles, 50% en PC) */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden items-center justify-center">
         {/* Efectos de iluminación de fondo */}
@@ -132,7 +154,9 @@ export default function Login({ setUsuarioActual }) {
             <div className="bg-white/10 backdrop-blur-md border border-white/10 p-5 rounded-2xl flex-1 hover:bg-white/20 transition-colors">
               <span className="text-3xl block mb-3">🛠️</span>
               <h4 className="font-bold text-sm">Mantenimiento</h4>
-              <p className="text-xs text-slate-400 mt-1">Plan preventivo y reportes de fallas</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Plan preventivo y reportes de fallas
+              </p>
             </div>
             <div className="bg-white/10 backdrop-blur-md border border-white/10 p-5 rounded-2xl flex-1 hover:bg-white/20 transition-colors">
               <span className="text-3xl block mb-3">📦</span>

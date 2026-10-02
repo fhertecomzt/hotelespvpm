@@ -71,7 +71,6 @@ export default function PanelAdmin({ usuarioActual }) {
   // CAMPOS FORMULARIO EMPLEADO
   // 1. Creamos la referencia para el primer input (autofocus)
   const primerInputRef = useRef(null);
-
   const [edicionId, setEdicionId] = useState(0);
   const [nombre, setNombre] = useState("");
   const [primerApellido, setPrimerApellido] = useState("");
@@ -82,12 +81,26 @@ export default function PanelAdmin({ usuarioActual }) {
   const [hotelIdEmp, setHotelIdEmp] = useState(usuarioActual?.hotel_id || 1);
   const [estatusEmp, setEstatusEmp] = useState("Activo");
 
+  //CAMPOS: IA Y TOLERANCIA
+  const [minutosTolerancia, setMinutosTolerancia] = useState(15);
+  const [fotoRostro, setFotoRostro] = useState(null);
+  const [fotoRostroPreview, setFotoRostroPreview] = useState(null);
+
   // CAMPOS FORMULARIO HOTEL CON ALIAS
   const [hotelEditId, setHotelEditId] = useState(0);
   const [nombreHotel, setNombreHotel] = useState("");
   const [aliasHotel, setAliasHotel] = useState("");
   const [direccionHotel, setDireccionHotel] = useState("");
   const [estatusHotel, setEstatusHotel] = useState("Activo");
+
+  //CAMPOS FISCALES Y GEOGRÁFICOS
+  const [latitudHotel, setLatitudHotel] = useState("");
+  const [longitudHotel, setLongitudHotel] = useState("");
+  const [cpHotel, setCpHotel] = useState("");
+  const [regimenHotel, setRegimenHotel] = useState("");
+  const [correoHotel, setCorreoHotel] = useState("");
+  const [razonSocialHotel, setRazonSocialHotel] = useState("");
+  const [rfcHotel, setRfcHotel] = useState("");
 
   // CAMPOS FORMULARIO TIPO DE HABITACIÓN
   const [tipoEditId, setTipoEditId] = useState(0);
@@ -280,7 +293,10 @@ export default function PanelAdmin({ usuarioActual }) {
     setRol("Camarista");
     setHotelIdEmp(usuarioActual?.hotel_id || 1);
     setEstatusEmp("Activo");
-    setPermisosEmp([]); // Limpiamos los permisos para un empleado nuevo
+    setPermisosEmp([]);
+    setMinutosTolerancia(15);
+    setFotoRostro(null);
+    setFotoRostroPreview(null);
     setModalFormulario(true);
   };
 
@@ -294,14 +310,17 @@ export default function PanelAdmin({ usuarioActual }) {
     setRol(u.rol);
     setHotelIdEmp(u.hotel_base_id);
     setEstatusEmp(u.estatus || "Activo");
-    setPermisosEmp(u.permisos || []); // Cargamos los permisos si ya los tiene
+    setPermisosEmp(u.permisos || []);
+    setMinutosTolerancia(u.minutos_tolerancia ?? 15);
+    setFotoRostro(null);
+    setFotoRostroPreview(
+      u.foto_perfil_url ? `${API_URL}/${u.foto_perfil_url}` : null,
+    );
     setModalFormulario(true);
   };
 
   const handleGuardarUsuario = (e) => {
     e.preventDefault();
-
-    // Candado de seguridad Offline
     if (!navigator.onLine) {
       alertaToast(
         "error",
@@ -311,26 +330,30 @@ export default function PanelAdmin({ usuarioActual }) {
     }
 
     setGuardando(true);
+
+    // USAMOS FORMDATA PARA PODER ENVIAR EL ARCHIVO DE IMAGEN DE IA
+    const formData = new FormData();
+    formData.append("id", edicionId);
+    formData.append("nombre", nombre);
+    formData.append("primer_apellido", primerApellido);
+    formData.append("segundo_apellido", segundoApellido);
+    formData.append("email", email);
+    formData.append("password", password);
+    formData.append("rol", rol);
+    formData.append("hotel_base_id", hotelIdEmp);
+    formData.append("estatus", estatusEmp);
+    formData.append("minutos_tolerancia", minutosTolerancia);
+    formData.append("rol_solicitante", usuarioActual?.rol || "Desconocido");
+    formData.append("permisos", JSON.stringify(permisosEmp));
+
+    if (fotoRostro) {
+      formData.append("foto_rostro", fotoRostro);
+    }
+
     fetch(`${API_URL}/guardar_usuario.php`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        id: edicionId,
-        nombre,
-        primer_apellido: primerApellido,
-        segundo_apellido: segundoApellido,
-        email,
-        password,
-        rol,
-        hotel_base_id: hotelIdEmp,
-        estatus: estatusEmp,
-        permisos: permisosEmp, // Añadimos el arreglo al envío
-        // 🔴 NUEVO: Le enviamos al servidor nuestra "placa" o rol actual para que nos valide
-        rol_solicitante: usuarioActual?.rol || "Desconocido",
-      }),
+      headers: { Authorization: `Bearer ${token}` }, // NO enviamos Content-Type, fetch lo pone automático para FormData
+      body: formData,
     })
       .then((res) => res.json())
       .then((res) => {
@@ -347,8 +370,7 @@ export default function PanelAdmin({ usuarioActual }) {
         setGuardando(false);
         alertaToast("error", "Error de red al conectar con el servidor");
       });
-  };;
-
+  };
   // ==========================================
   // FUNCIONES PARA HOTELES (MODO SAAS CON ALIAS)
   // ==========================================
@@ -377,6 +399,13 @@ export default function PanelAdmin({ usuarioActual }) {
         alias: aliasHotel,
         direccion: direccionHotel,
         estatus: estatusHotel,
+        latitud: latitudHotel,
+        longitud: longitudHotel,
+        codigo_postal: cpHotel,
+        regimen_fiscal: regimenHotel,
+        correo_electronico: correoHotel,
+        razon_social: razonSocialHotel,
+        rfc: rfcHotel,
       }),
     })
       .then((r) => r.json())
@@ -390,7 +419,7 @@ export default function PanelAdmin({ usuarioActual }) {
           alertaToast("error", res.message);
         }
       });
-  };;
+  };
 
   // ==========================================
   // FUNCIONES PARA TIPOS DE HABITACIÓN
@@ -432,7 +461,7 @@ export default function PanelAdmin({ usuarioActual }) {
           alertaToast("error", res.message);
         }
       });
-  };;
+  };
 
   // ==========================================
   // FUNCIONES PARA ZONAS
@@ -474,7 +503,7 @@ export default function PanelAdmin({ usuarioActual }) {
           alertaToast("error", res.message);
         }
       });
-  };;
+  };
 
   // ==========================================
   // FUNCIONES PARA HABITACIONES
@@ -540,7 +569,7 @@ export default function PanelAdmin({ usuarioActual }) {
           alertaToast("error", res.message);
         }
       });
-  };;
+  };
 
   // ==========================================
   // ELIMINADOR GENÉRICO CON MODAL SWEETALERT2
@@ -602,7 +631,7 @@ export default function PanelAdmin({ usuarioActual }) {
         }
       })
       .catch(() => alertaToast("error", "Fallo de conexión al eliminar"));
-  };;
+  };
 
   return (
     <div className="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen font-sans p-4 md:p-8 transition-colors duration-300">
@@ -841,6 +870,13 @@ export default function PanelAdmin({ usuarioActual }) {
                   setAliasHotel("");
                   setDireccionHotel("");
                   setEstatusHotel("Activo");
+                  setLatitudHotel("");
+                  setLongitudHotel("");
+                  setCpHotel("");
+                  setRegimenHotel("");
+                  setCorreoHotel("");
+                  setRazonSocialHotel("");
+                  setRfcHotel("");
                   setModalHotel(true);
                 }}
                 className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm shadow-sm transition-colors flex items-center gap-2"
@@ -897,6 +933,13 @@ export default function PanelAdmin({ usuarioActual }) {
                               setAliasHotel(h.alias || "");
                               setDireccionHotel(h.direccion);
                               setEstatusHotel(h.estatus || "Activo");
+                              setLatitudHotel(h.latitud || "");
+                              setLongitudHotel(h.longitud || "");
+                              setCpHotel(h.codigo_postal || "");
+                              setRegimenHotel(h.regimen_fiscal || "");
+                              setCorreoHotel(h.correo_electronico || "");
+                              setRazonSocialHotel(h.razon_social || "");
+                              setRfcHotel(h.rfc || "");
                               setModalHotel(true);
                             }}
                             className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold"
@@ -1392,6 +1435,68 @@ export default function PanelAdmin({ usuarioActual }) {
                 </div>
               </div>
 
+              {/* NUEVA FILA: TOLERANCIA Y FOTO IA */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Tolerancia (Minutos)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-slate-400">
+                      ⏱️
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={minutosTolerancia}
+                      onChange={(e) => setMinutosTolerancia(e.target.value)}
+                      className="w-full pl-9 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1 flex justify-between">
+                    <span>Foto Maestro (Reconocimiento Facial)</span>
+                    {fotoRostroPreview && (
+                      <span className="text-emerald-500">✅ Subida</span>
+                    )}
+                  </label>
+                  <input
+                    type="file"
+                    id="foto-rostro"
+                    accept="image/jpeg, image/png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setFotoRostro(file);
+                        setFotoRostroPreview(URL.createObjectURL(file));
+                      }
+                    }}
+                  />
+                  <div className="flex gap-2">
+                    {fotoRostroPreview && (
+                      <img
+                        src={fotoRostroPreview}
+                        alt="Preview"
+                        className="w-10 h-10 rounded-lg object-cover border border-slate-300"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        document.getElementById("foto-rostro").click()
+                      }
+                      className="flex-1 border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold p-2.5 rounded-lg text-xs hover:bg-slate-100 transition-colors flex items-center justify-center gap-2"
+                    >
+                      📷{" "}
+                      {fotoRostro ? "Cambiar Fotografía" : "Tomar o Subir Foto"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="pt-1">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
                   Hotel Asignado
@@ -1497,40 +1602,39 @@ export default function PanelAdmin({ usuarioActual }) {
                 : "Aprovisionar Nuevo Hotel"}
             </h3>
             <form onSubmit={handleGuardarHotel} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Nombre Completo de la Propiedad
-                </label>
-                <input
-                  type="text"
-                  required
-                  ref={primerInputRef}
-                  value={nombreHotel}
-                  onChange={(e) => setNombreHotel(e.target.value)}
-                  placeholder="Ej. Hotel Playa Victoria"
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-purple-400 focus:outline-none"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Nombre Completo
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    ref={primerInputRef}
+                    value={nombreHotel}
+                    onChange={(e) => setNombreHotel(e.target.value)}
+                    placeholder="Ej. Hotel Playa Victoria"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-purple-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Alias / Siglas Cortas
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={aliasHotel}
+                    onChange={(e) => setAliasHotel(e.target.value)}
+                    placeholder="Ej. Hotel PV"
+                    className="w-full bg-purple-50 dark:bg-purple-950/60 border border-purple-300 dark:border-purple-700 text-purple-900 dark:text-purple-200 rounded-lg p-2.5 text-sm font-black focus:ring-2 focus:ring-purple-400 focus:outline-none"
+                  />
+                </div>
               </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Alias / Siglas Cortas (Ej. Hotel PV)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={aliasHotel}
-                  onChange={(e) => setAliasHotel(e.target.value)}
-                  placeholder="Ej. Hotel PV, Hotel PM..."
-                  className="w-full bg-purple-50 dark:bg-purple-950/60 border border-purple-300 dark:border-purple-700 text-purple-900 dark:text-purple-200 rounded-lg p-2.5 text-sm font-black focus:ring-2 focus:ring-purple-400 focus:outline-none"
-                />
-                <span className="text-[10px] text-slate-400 block mt-1 font-semibold">
-                  Esta sigla se mostrará en todas las tablas del sistema para
-                  ahorrar espacio.
-                </span>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Dirección / Ciudad
+                  Dirección Física
                 </label>
                 <input
                   type="text"
@@ -1540,19 +1644,139 @@ export default function PanelAdmin({ usuarioActual }) {
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-purple-400 focus:outline-none"
                 />
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Latitud (GPS)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={latitudHotel}
+                    onChange={(e) => setLatitudHotel(e.target.value)}
+                    placeholder="Ej. 23.2314"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-purple-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Longitud (GPS)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={longitudHotel}
+                    onChange={(e) => setLongitudHotel(e.target.value)}
+                    placeholder="Ej. -106.4152"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-purple-400 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* SEPARADOR VISUAL */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 block">
+                  🧾 Datos Fiscales (Facturación CFDI 4.0)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                      Razón Social (Sin SA de CV)
+                    </label>
+                    <input
+                      type="text"
+                      value={razonSocialHotel}
+                      onChange={(e) =>
+                        setRazonSocialHotel(e.target.value.toUpperCase())
+                      }
+                      placeholder="Ej. OPERADORA TURISTICA"
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-purple-400 focus:outline-none uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                      RFC
+                    </label>
+                    <input
+                      type="text"
+                      maxLength="13"
+                      value={rfcHotel}
+                      onChange={(e) =>
+                        setRfcHotel(e.target.value.toUpperCase())
+                      }
+                      placeholder="Ej. OTM120304XYZ"
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-purple-400 focus:outline-none uppercase"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Régimen Fiscal
+                  </label>
+                  <select
+                    value={regimenHotel}
+                    onChange={(e) => setRegimenHotel(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-purple-400 focus:outline-none cursor-pointer"
+                  >
+                    <option value="">Seleccionar Régimen...</option>
+                    <option value="601">
+                      601 - General de Ley Personas Morales
+                    </option>
+                    <option value="612">
+                      612 - Personas Físicas con Actividades Empresariales
+                    </option>
+                    <option value="626">
+                      626 - Régimen Simplificado de Confianza
+                    </option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-1/3">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                      C.P.
+                    </label>
+                    <input
+                      type="text"
+                      maxLength="5"
+                      value={cpHotel}
+                      onChange={(e) => setCpHotel(e.target.value)}
+                      placeholder="82000"
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-purple-400 focus:outline-none"
+                    />
+                  </div>
+                  <div className="w-2/3">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                      Estatus
+                    </label>
+                    <select
+                      value={estatusHotel}
+                      onChange={(e) => setEstatusHotel(e.target.value)}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-purple-400 focus:outline-none cursor-pointer"
+                    >
+                      <option value="Activo">● Activo</option>
+                      <option value="Inactivo">🚫 Inactivo</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Estatus del Tenant
+                  Correo de Contacto / Facturación
                 </label>
-                <select
-                  value={estatusHotel}
-                  onChange={(e) => setEstatusHotel(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-purple-400 focus:outline-none cursor-pointer"
-                >
-                  <option value="Activo">● Activo (Operando)</option>
-                  <option value="Inactivo">🚫 Inactivo (Suspendido)</option>
-                </select>
+                <input
+                  type="email"
+                  value={correoHotel}
+                  onChange={(e) => setCorreoHotel(e.target.value)}
+                  placeholder="admin@hotel.com"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-purple-400 focus:outline-none"
+                />
               </div>
+
               <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-700 mt-6">
                 <button
                   type="button"

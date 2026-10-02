@@ -3,9 +3,13 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  // 🔴 1. Aumentamos el límite de advertencia de Vite (para que no marque error amarillo)
+  build: {
+    chunkSizeWarningLimit: 5000,
+  },
   plugins: [
     react(),
-    //  Pplugin PWA aquí, dentro de los corchetes de plugins
+    // Plugin PWA aquí, dentro de los corchetes de plugins
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "apple-touch-icon.png"],
@@ -36,6 +40,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"],
+        // 🔴 2. Aumentamos el límite de caché del Service Worker a 5MB (5242880 bytes)
+        maximumFileSizeToCacheInBytes: 5242880,
       },
     }),
   ],

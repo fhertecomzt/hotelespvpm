@@ -36,6 +36,17 @@ try {
   } catch (Exception $e) {
   }
 
+  // NUEVA AUTOCURACIÓN: Agregar campos de GPS y Fiscales
+  try {
+    $pdo->exec("ALTER TABLE hoteles 
+      ADD COLUMN latitud DECIMAL(10, 8) DEFAULT NULL,
+      ADD COLUMN longitud DECIMAL(11, 8) DEFAULT NULL,
+      ADD COLUMN codigo_postal VARCHAR(10) DEFAULT NULL,
+      ADD COLUMN regimen_fiscal VARCHAR(100) DEFAULT NULL,
+      ADD COLUMN correo_electronico VARCHAR(100) DEFAULT NULL");
+  } catch (Exception $e) {
+  }
+
   // Autocuración: Crear tabla de Tipos de Habitación si no existe
   try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS tipos_habitacion (
@@ -88,6 +99,14 @@ try {
     $alias = trim($data['alias'] ?? '');
     $direccion = trim($data['direccion'] ?? '');
     $estatus = trim($data['estatus'] ?? 'Activo');
+    // DATOS COMERCIALES Y FISCALES
+    $razon_social = trim(strtoupper($data['razon_social'] ?? ''));
+    $rfc = trim(strtoupper($data['rfc'] ?? ''));
+    $latitud = !empty($data['latitud']) ? $data['latitud'] : null;
+    $longitud = !empty($data['longitud']) ? $data['longitud'] : null;
+    $codigo_postal = trim($data['codigo_postal'] ?? '');
+    $regimen_fiscal = trim($data['regimen_fiscal'] ?? '');
+    $correo_electronico = trim($data['correo_electronico'] ?? '');
 
     if (empty($nombre)) {
       echo json_encode(['success' => false, 'message' => 'El nombre del hotel es obligatorio.']);
@@ -106,18 +125,18 @@ try {
     }
 
     if ($id > 0) {
-      $stmt = $pdo->prepare("UPDATE hoteles SET nombre = ?, alias = ?, direccion = ?, estatus = ? WHERE id = ?");
-      $stmt->execute([$nombre, $alias, $direccion, $estatus, $id]);
+      $stmt = $pdo->prepare("UPDATE hoteles SET nombre = ?, alias = ?, direccion = ?, estatus = ?, latitud = ?, longitud = ?, codigo_postal = ?, regimen_fiscal = ?, correo_electronico = ?, razon_social = ?, rfc = ? WHERE id = ?");
+      $stmt->execute([$nombre, $alias, $direccion, $estatus, $latitud, $longitud, $codigo_postal, $regimen_fiscal, $correo_electronico, $razon_social, $rfc, $id]);
       echo json_encode(['success' => true, 'message' => 'Hotel actualizado correctamente.']);
     } else {
-      $stmt = $pdo->prepare("INSERT INTO hoteles (nombre, alias, direccion, estatus) VALUES (?, ?, ?, ?)");
-      $stmt->execute([$nombre, $alias, $direccion, $estatus]);
+      $stmt = $pdo->prepare("INSERT INTO hoteles (nombre, alias, direccion, estatus, latitud, longitud, codigo_postal, regimen_fiscal, correo_electronico, razon_social, rfc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      $stmt->execute([$nombre, $alias, $direccion, $estatus, $latitud, $longitud, $codigo_postal, $regimen_fiscal, $correo_electronico, $razon_social, $rfc]);
 
       $nuevoHotelId = $pdo->lastInsertId();
       $pdo->exec("INSERT INTO zonas (hotel_id, nombre, estatus) VALUES ($nuevoHotelId, 'Zona General', 'Activo')");
       $pdo->exec("INSERT INTO tipos_habitacion (hotel_id, nombre, estatus) VALUES ($nuevoHotelId, 'Estándar', 'Activo'), ($nuevoHotelId, 'Suite', 'Activo')");
 
-      echo json_encode(['success' => true, 'message' => '🎉 Nuevo hotel y alias aprovisionados con éxito.']);
+      echo json_encode(['success' => true, 'message' => '🎉 Nuevo hotel aprovisionado con éxito.']);
     }
     exit;
   }
