@@ -131,13 +131,14 @@ export default function Login({ setUsuarioActual }) {
           <h2 className="text-5xl font-extrabold mb-6 leading-tight">
             Gestión hotelera <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
-              unificada y en tiempo real.
+              en tiempo real.
             </span>
           </h2>
           <p className="text-slate-300 text-lg mb-10 leading-relaxed max-w-lg font-medium">
-            Accede a tu panel para operar estatus de habitaciones, controlar
-            incidencias de mantenimiento, ejecutar rutinas preventivas y
-            gestionar el inventario del almacén de manera centralizada.
+            Accede a tu panel para operar estatus de limpieza de habitaciones,
+            controlar incidencias de mantenimiento, ejecutar rutinas
+            preventivas, registro de asistencias y gestionar el inventario del
+            almacén de manera centralizada.
           </p>
 
           <div className="flex gap-4">
@@ -158,6 +159,14 @@ export default function Login({ setUsuarioActual }) {
                 Plan preventivo y reportes de fallas
               </p>
             </div>
+            <div className="bg-white/10 backdrop-blur-md border border-white/10 p-5 rounded-2xl flex-1 hover:bg-white/20 transition-colors">
+              <span className="text-3xl block mb-3">⏱️</span>
+              <h4 className="font-bold text-sm">Checador</h4>
+              <p className="text-xs text-slate-400 mt-1">
+                Control de Asistencia
+              </p>
+            </div>
+
             <div className="bg-white/10 backdrop-blur-md border border-white/10 p-5 rounded-2xl flex-1 hover:bg-white/20 transition-colors">
               <span className="text-3xl block mb-3">📦</span>
               <h4 className="font-bold text-sm">Almacén</h4>
@@ -341,7 +350,7 @@ export default function Login({ setUsuarioActual }) {
         <div className="absolute bottom-6 text-center w-full">
           <Link
             to="/privacidad"
-            className="text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors"
+            className="text-xs font-bold  text-slate-400 hover:text-indigo-600 transition-colors"
           >
             Aviso de Privacidad
           </Link>

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import GeneradorQR from "./GeneradorQR";
+import Swal from "sweetalert2";
 import { alertaToast } from "./utils";
+import TablaAsistencias from "./TablaAsistencias";
+import PanelAnuncios from "./PanelAnuncios";
 
 const API_URL = "/sistema/swaos-api";
 
@@ -52,7 +55,7 @@ export default function PanelAdmin({ usuarioActual }) {
 
   // ESTADOS DE PAGINACIÓN
   const [paginaActual, setPaginaActual] = useState(1);
-  const itemsPorPagina = 8;
+  const itemsPorPagina = 5;
 
   const getItemsPaginados = (lista) => {
     const indiceUltimoItem = paginaActual * itemsPorPagina;
@@ -68,6 +71,24 @@ export default function PanelAdmin({ usuarioActual }) {
   const [modalZona, setModalZona] = useState(false);
   const [modalHab, setModalHab] = useState(false);
 
+  // DÍAS DE DESCANSO
+  const DIAS_SEMANA = [
+    "Lunes",
+    "Martes",
+    "Miércoles",
+    "Jueves",
+    "Viernes",
+    "Sábado",
+    "Domingo",
+  ];
+  const [diasDescanso, setDiasDescanso] = useState([]);
+
+  const toggleDiaDescanso = (dia) => {
+    setDiasDescanso((prev) =>
+      prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia],
+    );
+  };
+
   // CAMPOS FORMULARIO EMPLEADO
   // 1. Creamos la referencia para el primer input (autofocus)
   const primerInputRef = useRef(null);
@@ -80,6 +101,11 @@ export default function PanelAdmin({ usuarioActual }) {
   const [rol, setRol] = useState("Camarista");
   const [hotelIdEmp, setHotelIdEmp] = useState(usuarioActual?.hotel_id || 1);
   const [estatusEmp, setEstatusEmp] = useState("Activo");
+  const [hora_entrada, setHoraEntr] = useState("");
+  const [hora_salida, setHoraSal] = useState("");
+  const [exentoAsistencia, setExentoAsistencia] = useState(0);
+  const [fechaNacimiento, setFechaNacimiento] = useState("");
+  const [fechaIngreso, setFechaIngreso] = useState("");
 
   //CAMPOS: IA Y TOLERANCIA
   const [minutosTolerancia, setMinutosTolerancia] = useState(15);
@@ -123,6 +149,14 @@ export default function PanelAdmin({ usuarioActual }) {
 
   const [guardando, setGuardando] = useState(false);
 
+  // --- CÁLCULOS DE FECHAS LÍMITE ---
+  const hoy = new Date();
+  const hoyStr = hoy.toISOString().split("T")[0]; // Ej. "2026-10-18"
+
+  const hace18Anos = new Date();
+  hace18Anos.setFullYear(hoy.getFullYear() - 18);
+  const maxNacimientoStr = hace18Anos.toISOString().split("T")[0];
+
   // FILTRO DE JERARQUÍA Y SILOS DEPARTAMENTALES
   const usuariosFiltrados = usuarios.filter((u) => {
     if (esSuperusuario) return true; // El Superusuario ve absolutamente a todos
@@ -156,6 +190,8 @@ export default function PanelAdmin({ usuarioActual }) {
   // DICCIONARIO DE PERMISOS DISPONIBLES
   const LISTA_PERMISOS = [
     { id: "crear_empleado", label: "Administrar Empleados" },
+    { id: "ver_asistencias", label: "⌚ Ver Asistencias y Retardos" },
+    { id: "editar_asistencias", label: "⌚ Editar Asistencias y Retardos" },
     { id: "gestionar_hoteles", label: "Administrar Hoteles (SaaS)" },
     { id: "gestionar_zonas", label: "Configurar Zonas y Tipos" },
     { id: "gestionar_habitaciones", label: "Editar Cuartos y QR" },
@@ -294,10 +330,15 @@ export default function PanelAdmin({ usuarioActual }) {
     setHotelIdEmp(usuarioActual?.hotel_id || 1);
     setEstatusEmp("Activo");
     setPermisosEmp([]);
+    setHoraEntr("");
+    setHoraSal("");
     setMinutosTolerancia(15);
     setFotoRostro(null);
     setFotoRostroPreview(null);
     setModalFormulario(true);
+    setDiasDescanso([]);
+    setFechaNacimiento("");
+    setFechaIngreso("");
   };
 
   const abrirModalEditarEmp = (u) => {
@@ -311,16 +352,52 @@ export default function PanelAdmin({ usuarioActual }) {
     setHotelIdEmp(u.hotel_base_id);
     setEstatusEmp(u.estatus || "Activo");
     setPermisosEmp(u.permisos || []);
+    setHoraEntr(u.hora_entrada || "");
+    setHoraSal(u.hora_salida || "");
     setMinutosTolerancia(u.minutos_tolerancia ?? 15);
+    setExentoAsistencia(Number(u.exento_asistencia) || 0);
+    setFechaNacimiento(u.fecha_nacimiento || "");
+    setFechaIngreso(u.fecha_ingreso || "");
     setFotoRostro(null);
     setFotoRostroPreview(
       u.foto_perfil_url ? `${API_URL}/${u.foto_perfil_url}` : null,
     );
     setModalFormulario(true);
+    // <-- Agrega este bloque para leer correctamente el JSON de la BD
+    let diasParsed = [];
+    try {
+      diasParsed =
+        typeof u.dias_descanso === "string"
+          ? JSON.parse(u.dias_descanso)
+          : u.dias_descanso || [];
+    } catch (e) {}
+    setDiasDescanso(diasParsed);
   };
 
   const handleGuardarUsuario = (e) => {
     e.preventDefault();
+
+    // --- VALIDACIONES ESTRICTAS DE RH ---
+    if (!fechaNacimiento || !fechaIngreso) {
+      alertaToast(
+        "error",
+        "🛑 La fecha de nacimiento y de ingreso son obligatorias.",
+      );
+      return;
+    }
+    if (fechaIngreso > hoyStr) {
+      alertaToast("error", "🛑 La fecha de ingreso no puede ser en el futuro.");
+      return;
+    }
+    if (fechaNacimiento > maxNacimientoStr) {
+      alertaToast(
+        "error",
+        "🛑 Por ley, el empleado debe ser mayor de edad (18+ años).",
+      );
+      return;
+    }
+    // ------------------------------------
+
     if (!navigator.onLine) {
       alertaToast(
         "error",
@@ -342,9 +419,15 @@ export default function PanelAdmin({ usuarioActual }) {
     formData.append("rol", rol);
     formData.append("hotel_base_id", hotelIdEmp);
     formData.append("estatus", estatusEmp);
+    formData.append("hora_entrada", hora_entrada);
+    formData.append("hora_salida", hora_salida);
     formData.append("minutos_tolerancia", minutosTolerancia);
+    formData.append("exento_asistencia", exentoAsistencia);
     formData.append("rol_solicitante", usuarioActual?.rol || "Desconocido");
     formData.append("permisos", JSON.stringify(permisosEmp));
+    formData.append("dias_descanso", JSON.stringify(diasDescanso));
+    formData.append("fecha_nacimiento", fechaNacimiento);
+    formData.append("fecha_ingreso", fechaIngreso);
 
     if (fotoRostro) {
       formData.append("foto_rostro", fotoRostro);
@@ -642,7 +725,7 @@ export default function PanelAdmin({ usuarioActual }) {
             <h1 className="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-2">
               <span>⚙️</span> Administración de Plataforma{" "}
               {esSuperusuario && (
-                <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-md uppercase tracking-wider">
+                <span className="text-xs bg-purple-200 text-white px-2 py-0.5 rounded-md uppercase tracking-wider">
                   Modo SaaS
                 </span>
               )}
@@ -663,6 +746,30 @@ export default function PanelAdmin({ usuarioActual }) {
                 className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "personal" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
               >
                 <span>👥</span> Personal y Roles
+              </button>
+            )}
+
+            {tieneAcceso("ver_asistencias") && (
+              <button
+                onClick={() => {
+                  setPestaña("asistencias");
+                  setPaginaActual(1);
+                }}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "asistencias" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
+              >
+                <span>⌚</span> Asistencias
+              </button>
+            )}
+
+            {tieneAcceso("crear_empleado") && (
+              <button
+                onClick={() => {
+                  setPestaña("comunicados");
+                  setPaginaActual(1);
+                }}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${pestaña === "comunicados" ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"}`}
+              >
+                <span>📢</span> Comunicados RH
               </button>
             )}
 
@@ -805,39 +912,44 @@ export default function PanelAdmin({ usuarioActual }) {
                               {u.rol}
                             </span>
                           </td>
+                          {/* COLUMNA ESTATUS */}
                           <td className="p-4">
                             <span
-                              className={`px-2.5 py-1 rounded-full text-[11px] font-black uppercase border ${esActivo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"}`}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase border whitespace-nowrap ${esActivo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"}`}
                             >
                               ● {u.estatus || "Activo"}
                             </span>
                           </td>
+                          {/* COLUMNA HOTEL */}
                           <td className="p-4">
-                            <span className="bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-bold px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800/40 text-xs">
+                            <span className="inline-flex items-center whitespace-nowrap bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-bold px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800/40 text-xs">
                               {getHotelLabel(u.hotel_base_id)}
                             </span>
                           </td>
-                          <td className="p-4 text-right space-x-2">
-                            <button
-                              onClick={() => abrirModalEditarEmp(u)}
-                              className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold"
-                            >
-                              ✏️ Editar
-                            </button>
-                            {!esTu && u.id !== 1 && (
+                          {/* COLUMNA ACCIONES */}
+                          <td className="p-4">
+                            <div className="flex items-center justify-end gap-2">
                               <button
-                                onClick={() =>
-                                  handleEliminarItem(
-                                    u.id,
-                                    "usuarios",
-                                    nombreComp,
-                                  )
-                                }
-                                className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 px-3 py-1.5 rounded-lg text-xs font-bold"
+                                onClick={() => abrirModalEditarEmp(u)}
+                                className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 whitespace-nowrap"
                               >
-                                🗑️ Borrar
+                                ✏️ Editar
                               </button>
-                            )}
+                              {!esTu && u.id !== 1 && (
+                                <button
+                                  onClick={() =>
+                                    handleEliminarItem(
+                                      u.id,
+                                      "usuarios",
+                                      nombreComp,
+                                    )
+                                  }
+                                  className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 whitespace-nowrap"
+                                >
+                                  🗑️ Borrar
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -846,6 +958,35 @@ export default function PanelAdmin({ usuarioActual }) {
                 </table>
                 <RenderPaginacion lista={usuariosFiltrados} />
               </div>
+            </div>
+          )}
+
+        {/* ========================================================= */}
+        {/* PESTAÑA COMUNICADOS RH */}
+        {/* ========================================================= */}
+        {!cargando && pestaña === "comunicados" && (
+          <PanelAnuncios
+            usuarios={usuarios}
+            hoteles={hoteles}
+            usuarioActual={usuarioActual}
+            token={token}
+          />
+        )}
+
+        {/* ========================================================= */}
+        {/* PESTAÑA ASISTENCIAS */}
+        {/* ========================================================= */}
+        {!cargando &&
+          pestaña === "asistencias" &&
+          tieneAcceso("ver_asistencias") && (
+            <div className="animate-fadeIn">
+              {/* Agregamos hoteles={hoteles} */}
+              <TablaAsistencias
+                usuarioActual={usuarioActual}
+                token={token}
+                hoteles={hoteles}
+                usuarios={usuarios}
+              />
             </div>
           )}
 
@@ -896,7 +1037,7 @@ export default function PanelAdmin({ usuarioActual }) {
                     <th className="p-4 text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">
                   {getItemsPaginados(hoteles).map((h) => {
                     const esActivo = h.estatus !== "Inactivo";
                     return (
@@ -911,16 +1052,17 @@ export default function PanelAdmin({ usuarioActual }) {
                           <span>🏨</span> {h.nombre}
                         </td>
                         <td className="p-4">
-                          <span className="bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-black px-2.5 py-1 rounded-md text-xs border border-purple-300 dark:border-purple-800">
+                          <span className="inline-flex items-center bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-black px-2.5 py-1 rounded-md text-xs border border-purple-300 dark:border-purple-800">
                             {h.alias || "N/A"}
                           </span>
                         </td>
                         <td className="p-4 text-slate-500 dark:text-slate-400 font-normal">
                           {h.direccion || "Sin dirección"}
                         </td>
+
                         <td className="p-4">
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-black uppercase border ${esActivo ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30"}`}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase border whitespace-nowrap ${esActivo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30"}`}
                           >
                             ● {h.estatus || "Activo"}
                           </span>
@@ -942,7 +1084,7 @@ export default function PanelAdmin({ usuarioActual }) {
                               setRfcHotel(h.rfc || "");
                               setModalHotel(true);
                             }}
-                            className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold"
+                            className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap"
                           >
                             ✏️ Editar
                           </button>
@@ -1278,7 +1420,7 @@ export default function PanelAdmin({ usuarioActual }) {
           className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
         >
           <div
-            className="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl border border-slate-200 dark:border-slate-700 transition-colors"
+            className="bg-white dark:bg-slate-800 rounded-2xl p-5 w-full max-w-5xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-y-auto max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-xl font-black text-slate-800 dark:text-white border-b border-slate-100 dark:border-slate-700 pb-3 mb-4 flex items-center gap-2">
@@ -1287,10 +1429,14 @@ export default function PanelAdmin({ usuarioActual }) {
                 ? `Editar Empleado #${edicionId}`
                 : "Registrar Nuevo Empleado"}
             </h3>
-            <form onSubmit={handleGuardarUsuario} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <form onSubmit={handleGuardarUsuario} className="space-y-3">
+              {/* ====================================================== */}
+              {/* BLOQUE 1: IDENTIDAD Y CUENTA (GRID PERFECTO 4 COLUMNAS) */}
+              {/* ====================================================== */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-x-3 gap-y-3">
+                {/* LÍNEA 1 */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
                     Nombre(s)
                   </label>
                   <input
@@ -1300,12 +1446,12 @@ export default function PanelAdmin({ usuarioActual }) {
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
                     placeholder="Ej. María"
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+                    className="w-full h-[34px] bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-semibold focus:ring-2 focus:ring-indigo-400 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Primer Apellido
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
+                    1er Apellido
                   </label>
                   <input
                     type="text"
@@ -1313,25 +1459,38 @@ export default function PanelAdmin({ usuarioActual }) {
                     value={primerApellido}
                     onChange={(e) => setPrimerApellido(e.target.value)}
                     placeholder="Ej. Hernández"
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+                    className="w-full h-[34px] bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-semibold focus:ring-2 focus:ring-indigo-400 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Segundo Apellido
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
+                    2do Apellido
                   </label>
                   <input
                     type="text"
                     value={segundoApellido}
                     onChange={(e) => setSegundoApellido(e.target.value)}
                     placeholder="Ej. Díaz"
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+                    className="w-full h-[34px] bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-semibold focus:ring-2 focus:ring-indigo-400 outline-none"
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
+                    🎂 F. Nacimiento
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    max={maxNacimientoStr}
+                    value={fechaNacimiento}
+                    onChange={(e) => setFechaNacimiento(e.target.value)}
+                    className="w-full h-[34px] bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-semibold focus:ring-2 focus:ring-pink-400 outline-none cursor-pointer"
+                  />
+                </div>
+
+                {/* LÍNEA 2 */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
                     Correo Electrónico
                   </label>
                   <input
@@ -1340,126 +1499,186 @@ export default function PanelAdmin({ usuarioActual }) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="empleado@hotel.com"
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+                    className="w-full h-[34px] bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-semibold focus:ring-2 focus:ring-indigo-400 outline-none"
                     autoComplete="nope"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    {edicionId > 0
-                      ? "Nueva Contraseña (Opcional)"
-                      : "Contraseña"}
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
+                    {edicionId > 0 ? "Nueva Contraseña" : "Contraseña"}
                   </label>
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={
-                      edicionId > 0 ? "Vacío = no cambia" : "••••••••"
+                      edicionId > 0 ? "Vacía = sin cambios" : "••••••••"
                     }
                     required={edicionId === 0}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+                    className="w-full h-[34px] bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-semibold focus:ring-2 focus:ring-indigo-400 outline-none"
                     autoComplete="new-password"
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
                     Rol Operativo
                   </label>
                   <select
                     value={rol}
                     onChange={(e) => setRol(e.target.value)}
                     disabled={edicionId === usuarioActual?.id}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-400 focus:outline-none cursor-pointer disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-800"
+                    className="w-full h-[34px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-bold focus:ring-2 focus:ring-indigo-400 outline-none cursor-pointer disabled:opacity-50"
                   >
-                    {/* El Ama de Llaves, Admin y Superusuario pueden crear Camaristas */}
                     {(esSuperusuario ||
                       esAdmin ||
                       usuarioActual?.rol === "Ama de Llaves") && (
                       <option value="Camarista">🧹 Camarista</option>
                     )}
-
-                    {/* Solo Recepcion, Admin y Superusuario pueden crear personal de Recepcion */}
                     {(esSuperusuario ||
                       esAdmin ||
                       usuarioActual?.rol === "Recepcion") && (
                       <option value="Recepcion">🖥️ Recepcion</option>
                     )}
-
-                    {/* Solo Mantenimiento, Admin y Superusuario pueden crear personal de Mantenimiento */}
                     {(esSuperusuario ||
                       esAdmin ||
                       usuarioActual?.rol === "Mantenimiento") && (
                       <option value="Mantenimiento">🛠️ Mantenimiento</option>
                     )}
-
-                    {/* NUEVO: ALMACENISTA (Solo visible para Jefes) */}
                     {(esSuperusuario || esAdmin) && (
                       <option value="Almacenista">📦 Almacenista</option>
                     )}
-
-                    {/* El Ama de Llaves (para crear supervisoras), Admin y Superusuario pueden crear Amas de Llaves */}
                     {(esSuperusuario ||
                       esAdmin ||
                       usuarioActual?.rol === "Ama de Llaves") && (
                       <option value="Ama de Llaves">🔑 Ama de Llaves</option>
                     )}
-
-                    {/* Ocultamos Administrador para los mandos medios */}
                     {(esAdmin || esSuperusuario) && (
                       <option value="Administrador">👔 Administrador</option>
                     )}
-
-                    {/* Ocultamos Superusuario para todos excepto para el Superusuario */}
                     {esSuperusuario && (
                       <option value="Superusuario">🚀 Superusuario</option>
                     )}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
                     Estatus Cuenta
                   </label>
                   <select
                     value={estatusEmp}
                     onChange={(e) => setEstatusEmp(e.target.value)}
-                    // Bloqueamos el estatus si el usuario se está editando a sí mismo
                     disabled={edicionId === usuarioActual?.id}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-400 focus:outline-none cursor-pointer"
+                    className="w-full h-[34px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-bold focus:ring-2 focus:ring-indigo-400 outline-none cursor-pointer disabled:opacity-50"
                   >
-                    <option value="Activo">● Activo (Tiene Acceso)</option>
-                    <option value="Inactivo">🚫 Inactivo (Suspendido)</option>
+                    <option value="Activo">● Activo</option>
+                    <option value="Inactivo">🚫 Inactivo</option>
                   </select>
                 </div>
-              </div>
 
-              {/* NUEVA FILA: TOLERANCIA Y FOTO IA */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Tolerancia (Minutos)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-slate-400">
-                      ⏱️
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={minutosTolerancia}
-                      onChange={(e) => setMinutosTolerancia(e.target.value)}
-                      className="w-full pl-9 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-400 focus:outline-none"
-                    />
-                  </div>
+                {/* ====================================================== */}
+                {/* SEPARADOR VISUAL */}
+                {/* ====================================================== */}
+                <div className="col-span-1 sm:col-span-4 border-t border-slate-100 dark:border-slate-700 pt-2 mt-1">
+                  <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                    Datos Operativos y Biometría
+                  </span>
                 </div>
 
+                {/* LÍNEA 3 */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1 flex justify-between">
-                    <span>Foto Maestro (Reconocimiento Facial)</span>
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
+                    Hotel Asignado
+                  </label>
+                  <select
+                    value={hotelIdEmp}
+                    onChange={(e) => setHotelIdEmp(Number(e.target.value))}
+                    className="w-full h-[34px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-bold focus:ring-2 focus:ring-indigo-400 outline-none cursor-pointer"
+                  >
+                    {hoteles.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        🏨 {h.alias || h.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
+                    💼 F. Ingreso (Aniv.)
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    max={hoyStr}
+                    value={fechaIngreso}
+                    onChange={(e) => setFechaIngreso(e.target.value)}
+                    className="w-full h-[34px] bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-semibold focus:ring-2 focus:ring-indigo-400 outline-none cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
+                    Entrada Oficial
+                  </label>
+                  <input
+                    type="time"
+                    value={hora_entrada}
+                    onChange={(e) => setHoraEntr(e.target.value)}
+                    required
+                    className="w-full h-[34px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-bold focus:ring-2 focus:ring-indigo-400 outline-none cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
+                    Salida Oficial
+                  </label>
+                  <input
+                    type="time"
+                    value={hora_salida}
+                    onChange={(e) => setHoraSal(e.target.value)}
+                    required
+                    className="w-full h-[34px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-bold focus:ring-2 focus:ring-indigo-400 outline-none cursor-pointer"
+                  />
+                </div>
+
+                {/* LÍNEA 4 */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
+                    Tolerancia (Min)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={minutosTolerancia}
+                    onChange={(e) => setMinutosTolerancia(e.target.value)}
+                    className="w-full h-[34px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2 text-xs font-bold focus:ring-2 focus:ring-indigo-400 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5">
+                    Excepción de Faltas
+                  </label>
+                  <label
+                    className="flex items-center justify-center gap-2 h-[34px] cursor-pointer bg-emerald-50 dark:bg-emerald-900/20 px-2 rounded-lg border border-emerald-200 dark:border-emerald-800/40 hover:bg-emerald-100 transition-colors"
+                    title="Al marcar esta casilla, el sistema NO le generará Faltas Automáticas."
+                  >
+                    <input
+                      type="checkbox"
+                      checked={exentoAsistencia === 1}
+                      onChange={(e) =>
+                        setExentoAsistencia(e.target.checked ? 1 : 0)
+                      }
+                      className="w-3.5 h-3.5 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span className="text-[11px] font-black text-emerald-800 dark:text-emerald-300 whitespace-nowrap">
+                      Exentar Reloj
+                    </span>
+                  </label>
+                </div>
+                {/* LA FOTO OCUPA 2 COLUMNAS PARA DARLE AIRE */}
+                <div className="col-span-1 sm:col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5 flex justify-between">
+                    <span>Foto IA Maestro</span>{" "}
                     {fotoRostroPreview && (
-                      <span className="text-emerald-500">✅ Subida</span>
+                      <span className="text-emerald-500">✅ Lista</span>
                     )}
                   </label>
                   <input
@@ -1475,12 +1694,12 @@ export default function PanelAdmin({ usuarioActual }) {
                       }
                     }}
                   />
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 h-[34px]">
                     {fotoRostroPreview && (
                       <img
                         src={fotoRostroPreview}
                         alt="Preview"
-                        className="w-10 h-10 rounded-lg object-cover border border-slate-300"
+                        className="w-[34px] h-[34px] rounded-lg object-cover border border-slate-300"
                       />
                     )}
                     <button
@@ -1488,93 +1707,124 @@ export default function PanelAdmin({ usuarioActual }) {
                       onClick={() =>
                         document.getElementById("foto-rostro").click()
                       }
-                      className="flex-1 border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold p-2.5 rounded-lg text-xs hover:bg-slate-100 transition-colors flex items-center justify-center gap-2"
+                      className="flex-1 border border-dashed border-slate-300 bg-slate-50 font-semibold rounded-lg text-[11px] hover:bg-slate-100 transition-colors flex justify-center items-center h-full"
                     >
-                      📷{" "}
-                      {fotoRostro ? "Cambiar Fotografía" : "Tomar o Subir Foto"}
+                      📷 {fotoRostro ? "Cambiar Foto" : "Subir Foto"}
                     </button>
+                  </div>
+                </div>
+
+                {/* LÍNEA 5: DESCANSOS CENTRADOS */}
+                <div className="col-span-1 sm:col-span-4 mt-1">
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1 text-center">
+                    Días de Descanso Fijos
+                  </label>
+                  <div className="flex justify-center gap-1.5 max-w-md mx-auto">
+                    {[
+                      { full: "Lunes", corto: "L" },
+                      { full: "Martes", corto: "M" },
+                      { full: "Miércoles", corto: "M" },
+                      { full: "Jueves", corto: "J" },
+                      { full: "Viernes", corto: "V" },
+                      { full: "Sábado", corto: "S" },
+                      { full: "Domingo", corto: "D" },
+                    ].map((dia) => (
+                      <button
+                        type="button"
+                        key={dia.full}
+                        onClick={() => toggleDiaDescanso(dia.full)}
+                        title={dia.full}
+                        className={`flex-1 aspect-square max-h-[34px] max-w-[34px] flex items-center justify-center rounded-lg text-xs font-bold border transition-colors ${diasDescanso.includes(dia.full) ? "bg-indigo-100 border-indigo-300 text-indigo-700 shadow-sm dark:bg-indigo-900/40 dark:border-indigo-600 dark:text-indigo-300" : "bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
+                      >
+                        {dia.corto}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              <div className="pt-1">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Hotel Asignado
-                </label>
-                <select
-                  value={hotelIdEmp}
-                  onChange={(e) => setHotelIdEmp(Number(e.target.value))}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-400 focus:outline-none cursor-pointer"
-                >
-                  {hoteles.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      🏨 {h.alias || h.nombre} (ID {h.id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* SECCIÓN DE PERMISOS GRANULARES - OCULTA PARA MANDOS MEDIOS */}
+              {/* ====================================================== */}
+              {/* LÍNEA 6: PERMISOS ACORTADOS */}
+              {/* ====================================================== */}
               {(esSuperusuario || usuarioActual?.rol === "Administrador") && (
-                <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-700">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-3">
-                    Permisos Especiales (Opcional)
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-700 mt-2">
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-2 text-center">
+                    Permisos del Sistema (Opcional)
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {/* Filtro Inteligente de Delegación */}
-                    {LISTA_PERMISOS.filter((p) => {
-                      if (esSuperusuario) return true; // El Superusuario puede asignar todo
-                      if (usuarioActual?.rol === "Administrador")
-                        return p.id !== "gestionar_hoteles"; // Admin no toca SaaS
-                      return false; // Nadie más debería llegar aquí, pero por seguridad retornamos falso
-                    }).map((permiso) => (
-                      <label
-                        key={permiso.id}
-                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                          permisosEmp.includes(permiso.id)
-                            ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-900/30 dark:border-indigo-700"
-                            : "bg-slate-50 border-slate-200 dark:bg-slate-900 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        } ${edicionId === usuarioActual?.id ? "opacity-60 cursor-not-allowed" : ""}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={permisosEmp.includes(permiso.id)}
-                          // Bloqueamos los checkboxes si se están editando a sí mismos
-                          onChange={() =>
-                            edicionId !== usuarioActual?.id &&
-                            togglePermiso(permiso.id)
-                          }
-                          disabled={edicionId === usuarioActual?.id}
-                          className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer disabled:cursor-not-allowed"
-                        />
-                        <span
-                          className={`text-xs font-bold ${permisosEmp.includes(permiso.id) ? "text-indigo-800 dark:text-indigo-300" : "text-slate-600 dark:text-slate-400"}`}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
+                    {[
+                      { id: "crear_empleado", label: "👥 Adm. Personal" },
+                      { id: "ver_asistencias", label: "⌚ Ver Asistencias" },
+                      {
+                        id: "editar_asistencias",
+                        label: "✏️ Edit. Asistencias",
+                      },
+                      { id: "gestionar_hoteles", label: "🏢 Adm. Hoteles" },
+                      { id: "gestionar_zonas", label: "🗺️ Zonas y Tipos" },
+                      {
+                        id: "gestionar_habitaciones",
+                        label: "🚪 Cuartos y QR",
+                      },
+                      { id: "asignar_camaristas", label: "🔑 Asignar Zonas" },
+                      { id: "ver_inventario", label: "📦 Ver Almacén" },
+                      {
+                        id: "gestionar_inventario",
+                        label: "➕ Entradas/Salidas",
+                      },
+                    ]
+                      .filter((p) => {
+                        if (esSuperusuario) return true;
+                        if (usuarioActual?.rol === "Administrador")
+                          return p.id !== "gestionar_hoteles";
+                        return false;
+                      })
+                      .map((permiso) => (
+                        <label
+                          key={permiso.id}
+                          className={`flex items-center gap-1.5 p-1.5 rounded-lg border cursor-pointer transition-colors ${permisosEmp.includes(permiso.id) ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-900/30" : "bg-slate-50 border-slate-200 dark:bg-slate-900"} ${edicionId === usuarioActual?.id ? "opacity-60 cursor-not-allowed" : ""}`}
                         >
-                          {permiso.label}
-                        </span>
-                      </label>
-                    ))}
+                          <input
+                            type="checkbox"
+                            checked={permisosEmp.includes(permiso.id)}
+                            onChange={() =>
+                              edicionId !== usuarioActual?.id &&
+                              togglePermiso(permiso.id)
+                            }
+                            disabled={edicionId === usuarioActual?.id}
+                            className="w-3.5 h-3.5 text-indigo-600 rounded cursor-pointer"
+                          />
+                          <span
+                            className={`text-[10px] font-bold whitespace-nowrap truncate ${permisosEmp.includes(permiso.id) ? "text-indigo-800" : "text-slate-600"}`}
+                            title={permiso.label}
+                          >
+                            {permiso.label}
+                          </span>
+                        </label>
+                      ))}
                   </div>
                 </div>
               )}
 
-              <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-700 mt-6">
+              {/* ====================================================== */}
+              {/* BOTONES FINALES */}
+              {/* ====================================================== */}
+              <div className="flex gap-2 pt-3 mt-3 border-t border-slate-100 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={() => setModalFormulario(false)}
-                  className="flex-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 font-bold py-3 rounded-xl transition-colors text-sm"
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 rounded-xl text-xs transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={guardando}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md transition-colors disabled:opacity-50 text-sm"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl shadow-md disabled:opacity-50 text-xs transition-colors"
                 >
                   {guardando
                     ? "Guardando..."
                     : edicionId > 0
-                      ? "Actualizar"
+                      ? "Actualizar Empleado"
                       : "Crear Empleado"}
                 </button>
               </div>

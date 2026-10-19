@@ -5,7 +5,11 @@ error_reporting(0);
 
 require_once 'auth.php';
 require_once 'db.php';
+
 header('Content-Type: application/json; charset=utf-8');
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
 
 try {
   // Autocuración: Asegurar columnas necesarias
@@ -58,12 +62,19 @@ try {
   $password = trim($data['password'] ?? '');
   $rol = trim($data['rol'] ?? 'Camarista');
   $hotel_base_id = intval($data['hotel_base_id'] ?? 1);
+  $hora_entrada = $data['hora_entrada'] ?? null;
+  $hora_salida  = $data['hora_salida'] ?? null;
   $estatus = trim($data['estatus'] ?? 'Activo');
   $minutos_tolerancia = intval($data['minutos_tolerancia'] ?? 15);
   $rol_solicitante = trim($data['rol_solicitante'] ?? '');
-
   $permisos_arreglo = isset($data['permisos']) && is_array($data['permisos']) ? $data['permisos'] : [];
   $permisos_json = json_encode($permisos_arreglo);
+  $dias_descanso = $data['dias_descanso'] ?? '[]';
+  // ATRAPAMOS EL INTERRUPTOR DE EXENCIÓN DE ASISTENCIA
+  $exento_asistencia = intval($data['exento_asistencia'] ?? 0);
+  // FECHA DE CUMPLEAÑOS Y ANIVERSARIO
+  $fecha_nacimiento = !empty($data['fecha_nacimiento']) ? $data['fecha_nacimiento'] : null;
+  $fecha_ingreso = !empty($data['fecha_ingreso']) ? $data['fecha_ingreso'] : null;
 
   // =========================================================================
   // PROCESAMIENTO DE LA FOTO MAESTRO (RECONOCIMIENTO FACIAL)
@@ -79,11 +90,23 @@ try {
 
   // Si se subió un archivo nuevo
   if (isset($_FILES['foto_rostro']) && $_FILES['foto_rostro']['error'] === UPLOAD_ERR_OK) {
+
+    // CAPTURAR EL ID Y BORRAR LA FOTO VIEJA
+    $usuario_id = $_POST['id'] ?? null;
+    if ($usuario_id) {
+      $stmtVieja = $pdo->prepare("SELECT foto_perfil_url FROM usuarios WHERE id = ?");
+      $stmtVieja->execute([$usuario_id]);
+      $rutaVieja = $stmtVieja->fetchColumn();
+
+      if ($rutaVieja && file_exists(__DIR__ . '/' . $rutaVieja)) {
+        unlink(__DIR__ . '/' . $rutaVieja);
+      }
+    }
+
     $ext = pathinfo($_FILES['foto_rostro']['name'], PATHINFO_EXTENSION);
     $filename = 'rostro_usr_' . time() . '_' . rand(1000, 9999) . '.' . $ext;
 
-    // Usamos una carpeta específica para los rostros de IA
-    $upload_dir = '../evidencias/rostros/';
+    $upload_dir = __DIR__ . '/evidencias/rostros/';
     if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
 
     if (move_uploaded_file($_FILES['foto_rostro']['tmp_name'], $upload_dir . $filename)) {
@@ -91,7 +114,7 @@ try {
     }
   }
 
-  // 🛡️ CANDADOS DE SEGURIDAD (ANTI-ESCALADA DE PRIVILEGIOS)
+  // 🛡️ CANDADOS DE SEGURIDAD
   if ($rol === 'Superusuario' && $rol_solicitante !== 'Superusuario') {
     echo json_encode(['success' => false, 'message' => '🛑 Bloqueo: No tienes autorización para crear cuentas de Superusuario.']);
     exit;
@@ -121,17 +144,17 @@ try {
   if ($id > 0) {
     if (!empty($password)) {
       $hash = password_hash($password, PASSWORD_DEFAULT);
-      $stmt = $pdo->prepare("UPDATE usuarios SET nombre=?, primer_apellido=?, segundo_apellido=?, email=?, $col_pass=?, rol=?, hotel_base_id=?, estatus=?, permisos=?, minutos_tolerancia=?, foto_perfil_url=? WHERE id=?");
-      $stmt->execute([$nombre, $primer_apellido, $segundo_apellido, $email, $hash, $rol, $hotel_base_id, $estatus, $permisos_json, $minutos_tolerancia, $foto_perfil_url, $id]);
+      $stmt = $pdo->prepare("UPDATE usuarios SET nombre=?, primer_apellido=?, segundo_apellido=?, email=?, $col_pass=?, rol=?, hotel_base_id=?, hora_entrada=?, hora_salida=?, estatus=?, permisos=?, minutos_tolerancia=?, foto_perfil_url=?, dias_descanso=?, exento_asistencia=?, fecha_nacimiento=?, fecha_ingreso=? WHERE id=?");
+      $stmt->execute([$nombre, $primer_apellido, $segundo_apellido, $email, $hash, $rol, $hotel_base_id, $hora_entrada, $hora_salida, $estatus, $permisos_json, $minutos_tolerancia, $foto_perfil_url, $dias_descanso, $exento_asistencia, $fecha_nacimiento, $fecha_ingreso, $id]);
     } else {
-      $stmt = $pdo->prepare("UPDATE usuarios SET nombre=?, primer_apellido=?, segundo_apellido=?, email=?, rol=?, hotel_base_id=?, estatus=?, permisos=?, minutos_tolerancia=?, foto_perfil_url=? WHERE id=?");
-      $stmt->execute([$nombre, $primer_apellido, $segundo_apellido, $email, $rol, $hotel_base_id, $estatus, $permisos_json, $minutos_tolerancia, $foto_perfil_url, $id]);
+      $stmt = $pdo->prepare("UPDATE usuarios SET nombre=?, primer_apellido=?, segundo_apellido=?, email=?, rol=?, hotel_base_id=?, hora_entrada=?, hora_salida=?, estatus=?, permisos=?, minutos_tolerancia=?, foto_perfil_url=?, dias_descanso=?, exento_asistencia=?, fecha_nacimiento=?, fecha_ingreso=? WHERE id=?");
+      $stmt->execute([$nombre, $primer_apellido, $segundo_apellido, $email, $rol, $hotel_base_id, $hora_entrada, $hora_salida, $estatus, $permisos_json, $minutos_tolerancia, $foto_perfil_url, $dias_descanso, $exento_asistencia, $fecha_nacimiento, $fecha_ingreso, $id]);
     }
     echo json_encode(['success' => true, 'message' => 'Empleado actualizado con éxito.']);
   } else {
     $hash = password_hash(empty($password) ? '123456' : $password, PASSWORD_DEFAULT);
-    $stmt = $pdo->prepare("INSERT INTO usuarios (nombre, primer_apellido, segundo_apellido, email, $col_pass, rol, hotel_base_id, estatus, permisos, minutos_tolerancia, foto_perfil_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$nombre, $primer_apellido, $segundo_apellido, $email, $hash, $rol, $hotel_base_id, $estatus, $permisos_json, $minutos_tolerancia, $foto_perfil_url]);
+    $stmt = $pdo->prepare("INSERT INTO usuarios (nombre, primer_apellido, segundo_apellido, email, $col_pass, rol, hotel_base_id, hora_entrada, hora_salida, estatus, permisos, minutos_tolerancia, foto_perfil_url, dias_descanso, exento_asistencia, fecha_nacimiento, fecha_ingreso) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$nombre, $primer_apellido, $segundo_apellido, $email, $hash, $rol, $hotel_base_id, $hora_entrada, $hora_salida, $estatus, $permisos_json, $minutos_tolerancia, $foto_perfil_url, $dias_descanso, $exento_asistencia, $fecha_nacimiento, $fecha_ingreso]);
     echo json_encode(['success' => true, 'message' => 'Nuevo empleado creado con éxito.']);
   }
 } catch (Exception $e) {

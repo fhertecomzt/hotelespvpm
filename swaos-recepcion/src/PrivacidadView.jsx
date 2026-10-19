@@ -81,6 +81,58 @@ export default function PrivacidadView() {
               navegación fuera de nuestra plataforma.
             </p>
           </section>
+
+          <section>
+            <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+              4. Información recopilada de los empleados (en nombre de los
+              hoteles)
+            </h2>
+            <p className="font-medium text-slate-600 dark:text-slate-300">
+              En nombre de los hoteles y siguiendo sus instrucciones, podemos
+              procesar:
+            </p>
+            <ul className="list-disc pl-5 mt-2 space-y-1 font-medium text-slate-600 dark:text-slate-300">
+              <li>
+                Identificadores o ID de empleados asignados por el cliente.
+              </li>
+              <li>Fotos del rostro.</li>
+              <li>Horarios de trabajo y asignación de turnos.</li>
+              <li>
+                Registros de asistencia y horario, incluyendo entradas y
+                salidas.
+              </li>
+              <li>
+                Registros de uso del dispositivo, como marcas de tiempo e
+                información de estado.
+              </li>
+              <li>
+                Cuando el cliente lo habilite: plantillas biométricas utilizadas
+                para la verificación de identidad.
+              </li>
+            </ul>
+          </section>
+          <section>
+            <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+              5. Información del sitio web y la aplicación
+            </h2>
+            <p className="font-medium text-slate-600 dark:text-slate-300">
+              Cuando los usuarios visitan nuestros sitios web o utilizan
+              nuestras aplicaciones, podemos recopilar:
+            </p>
+            <ul className="list-disc pl-5 mt-2 space-y-1 font-medium text-slate-600 dark:text-slate-300">
+              <li>Dirección IP.</li>
+              <li>Tipo de navegador y sistema operativo.</li>
+              <li>URL de referencia e identificadores del dispositivo.</li>
+              <li>
+                Registros de uso, datos de diagnóstico y métricas de
+                rendimiento.
+              </li>
+              <li>
+                Cookies y tecnologías de seguimiento similares (según se
+                describe en el aviso de cookies correspondiente).
+              </li>
+            </ul>
+          </section>
         </div>
       </div>
     </div>

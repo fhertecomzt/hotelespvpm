@@ -46,7 +46,7 @@ if (isset($data->email) && isset($data->password)) {
   // FIN DE LA SECCIÓN DE SEGURIDAD CLOUDFLARE. Si llegamos aquí, ES UN HUMANO.
 
   // 1. Buscamos al usuario incluyendo las nuevas columnas de seguridad
-  $stmt = $pdo->prepare("SELECT id, nombre, primer_apellido, segundo_apellido, rol, hotel_base_id, password_hash, permisos, intentos_fallidos, bloqueado_hasta FROM usuarios WHERE email = ?");
+  $stmt = $pdo->prepare("SELECT id, nombre, primer_apellido, segundo_apellido, rol, hotel_base_id, password_hash, permisos, intentos_fallidos, bloqueado_hasta, estatus FROM usuarios WHERE email = ?");
   $stmt->execute([$data->email]);
   $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -65,6 +65,15 @@ if (isset($data->email) && isset($data->password)) {
 
     // 3. Verificamos la contraseña
     if (password_verify($data->password, $user['password_hash'])) {
+
+      // Si la contraseña es correcta, verificamos el estatus
+      if ($user['estatus'] !== 'Activo') {
+        echo json_encode([
+          'success' => false,
+          'message' => 'Acceso denegado. Tu cuenta se encuentra inactiva.'
+        ]);
+        exit;
+      }
 
       // ¡ÉXITO! Reseteamos los intentos fallidos a 0
       $reset_stmt = $pdo->prepare("UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = ?");
