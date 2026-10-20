@@ -257,14 +257,26 @@ export default function RelojChecador({ onVolver }) {
           });
       },
       (err) => {
-        Swal.fire(
-          "Error GPS",
-          "Debes permitir el acceso a tu ubicación para checar.",
-          "error",
-        );
+        console.error("Error GPS detallado (Código):", err.code, err.message);
+
+        let mensajeEspecifico =
+          "Debes permitir el acceso a tu ubicación para checar.";
+        if (err.code === 1) {
+          mensajeEspecifico =
+            "Permiso de ubicación denegado en el iPhone. Revisa que Safari tenga acceso al GPS en los Ajustes de iOS.";
+        } else if (err.code === 3) {
+          mensajeEspecifico =
+            "El iPhone tardó demasiado en obtener la señal GPS (Timeout). Inténtalo cerca de una ventana o área abierta.";
+        }
+
+        Swal.fire("Error GPS (" + err.code + ")", mensajeEspecifico, "error");
         procesandoRef.current = false;
       },
-      { enableHighAccuracy: true, timeout: 10000 },
+      {
+        enableHighAccuracy: true,
+        timeout: 20000, // Subimos a 20 segundos para darle oportunidad al iPhone
+        maximumAge: 0,
+      },
     );
   };
 

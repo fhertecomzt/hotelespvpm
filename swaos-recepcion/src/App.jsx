@@ -39,6 +39,9 @@ function App() {
     localStorage.setItem("swaos_tema", tema);
   }, [tema]);
 
+  // estado del Menú Desplegable
+  const [menuModulosAbierto, setMenuModulosAbierto] = useState(false);
+
   // Rotación directa que garantiza cambio visual en cada clic: Claro -> Oscuro -> Sistema -> Claro...
   const alternarTema = () => {
     if (tema === "light") {
@@ -135,20 +138,9 @@ return (
             </div>
           </div>
 
-          {/* Lado Derecho: Los Botones de Acción Intactos */}
+          {/* Lado Derecho: Botones y Dropdown de Módulos */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* 1. Botón Tema (Conserva tu función alternarTema) */}
-            <button
-              onClick={alternarTema}
-              title="Cambiar apariencia visual"
-              className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors shrink-0"
-            >
-              <span className="text-sm">
-                {tema === "light" ? "☀️" : tema === "dark" ? "🌙" : "💻"}
-              </span>
-            </button>
-
-            {/* 2. Botón Inicio */}
+            {/* 2. Botón Inicio (Dashboard) */}
             <Link
               to="/"
               title="Inicio"
@@ -157,57 +149,149 @@ return (
               <span className="text-sm">🏠</span>
             </Link>
 
-            {/* NUEVO: Botón Inventario (Solo roles autorizados o con permiso específico) */}
-            {(usuarioActual.rol === "Administrador" ||
-              usuarioActual.rol === "Superusuario" ||
-              usuarioActual.rol === "Almacenista" ||
-              (usuarioActual.permisos &&
-                usuarioActual.permisos.includes("ver_inventario"))) && (
-              <Link
-                to="/inventario"
-                title="Inventario y Almacén"
-                className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded-lg border border-emerald-500/40 transition-colors shrink-0"
+            {/* ========================================================= */}
+            {/* 3. NUEVO: DROPDOWN DE MÓDULOS OPERATIVOS (APP LAUNCHER)   */}
+            {/* ========================================================= */}
+            <div className="relative">
+              <button
+                onClick={() => setMenuModulosAbierto(!menuModulosAbierto)}
+                title="Módulos y Aplicaciones"
+                className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors shrink-0 ${menuModulosAbierto ? "bg-indigo-600 border-indigo-500 text-white shadow-sm" : "bg-slate-800 hover:bg-slate-700 border-slate-700"}`}
               >
-                <span className="text-sm">📦</span>
-              </Link>
-            )}
+                <span className="text-sm">🎛️</span>
+              </button>
 
-            {/* 3. Botón Admin (Conserva tu lógica de seguridad) */}
-            {(usuarioActual.rol === "Administrador" ||
-              usuarioActual.rol === "Superusuario" ||
-              (usuarioActual.permisos &&
-                usuarioActual.permisos.length > 0)) && (
-              <Link
-                to="/admin"
-                title="Administración"
-                className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg border border-indigo-500/40 transition-colors shrink-0"
-              >
-                <span className="text-sm">⚙️</span>
-              </Link>
-            )}
+              {menuModulosAbierto && (
+                <>
+                  {/* Capa invisible para cerrar el menú al hacer clic afuera */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setMenuModulosAbierto(false)}
+                  ></div>
 
-            {/* 4. Botón Cámara (Conserva tu lógica de ocultar a Recepción) */}
-            {usuarioActual.rol !== "Recepcion" && (
-              <Link
-                to="/escaner"
-                title="Escanear"
-                className="w-8 h-8 flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 rounded-lg border border-indigo-500 shadow-sm transition-colors shrink-0"
-              >
-                <span className="text-sm">📷</span>
-              </Link>
-            )}
+                  {/* Caja del menú desplegable */}
+                  <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col py-1 animate-fadeIn">
+                    <span className="px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-700/50 mb-1">
+                      Módulos Operativos
+                    </span>
 
-            {/* 5. Botón Puerta (Salir y limpiar sesión) */}
-            <button
-              onClick={() => {
-                setUsuarioActual(null);
-                localStorage.removeItem("swaos_usuario");
-              }}
-              title="Salir del sistema"
-              className="w-8 h-8 flex items-center justify-center hover:bg-red-950/40 rounded-lg transition-colors shrink-0 ml-0.5"
-            >
-              <span className="text-lg">🚪</span>
-            </button>
+                    {/* App Recepción */}
+                    {[
+                      "Recepcion",
+                      "Ama de Llaves",
+                      "Administrador",
+                      "Superusuario",
+                    ].includes(usuarioActual.rol) && (
+                      <Link
+                        to="/recepcion"
+                        onClick={() => setMenuModulosAbierto(false)}
+                        className="px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                      >
+                        <span className="text-sm">🛎️</span>Recepción y ama de llaves
+                      </Link>
+                    )}
+
+                    {/* App Camaristas */}
+                    {[
+                      "Camarista",
+                      "Ama de Llaves",
+                      "Administrador",
+                      "Superusuario",
+                    ].includes(usuarioActual.rol) && (
+                      <Link
+                        to="/camarista"
+                        onClick={() => setMenuModulosAbierto(false)}
+                        className="px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                      >
+                        <span className="text-sm">🧹</span> App Camaristas
+                      </Link>
+                    )}
+
+                    {/* App Mantenimiento */}
+                    {[
+                      "Mantenimiento",
+                      "Administrador",
+                      "Superusuario",
+                    ].includes(usuarioActual.rol) && (
+                      <Link
+                        to="/mantenimiento"
+                        onClick={() => setMenuModulosAbierto(false)}
+                        className="px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                      >
+                        <span className="text-sm">🛠️</span> App Mantenimiento
+                      </Link>
+                    )}
+                    {/* Reportar daños */}
+                    {usuarioActual.rol !== "Recepcion" && (
+                      <Link
+                        to="/escaner"
+                        title="Reportar daños"
+                        className="px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors"
+                      >
+                        <span className="text-sm">📷</span>Reportar daños
+                      </Link>
+                    )}
+
+                    {/* App Inventario / Almacén */}
+                    {(["Administrador", "Superusuario", "Almacenista"].includes(
+                      usuarioActual.rol,
+                    ) ||
+                      (usuarioActual.permisos &&
+                        usuarioActual.permisos.includes("ver_inventario"))) && (
+                      <Link
+                        to="/inventario"
+                        onClick={() => setMenuModulosAbierto(false)}
+                        className="px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors border-t border-slate-700/50 mt-1 pt-2"
+                      >
+                        <span className="text-sm">📦</span> Almacén e Inventario
+                      </Link>
+                    )}
+
+                    {/* Panel de Administración */}
+                    {(["Administrador", "Superusuario"].includes(
+                      usuarioActual.rol,
+                    ) ||
+                      (usuarioActual.permisos &&
+                        usuarioActual.permisos.length > 0)) && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setMenuModulosAbierto(false)}
+                        className="px-4 py-2.5 text-xs font-black text-indigo-300 hover:bg-slate-700 flex items-center gap-2.5 transition-colors border-t border-slate-700 mt-1 pt-2 bg-indigo-900/10 hover:bg-indigo-900/20"
+                      >
+                        <span className="text-sm">⚙️</span> Administración
+                      </Link>
+                    )}
+
+                    {/* Botón Tema (Oscuro/Claro) */}
+                    <button
+                      onClick={alternarTema}
+                      title="Cambiar apariencia visual"
+                      className="px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors border-t border-slate-700/50 mt-1 pt-2"
+                    >
+                      <span className="text-sm">
+                        {tema === "light"
+                          ? "☀️ Tema claro"
+                          : tema === "dark"
+                            ? "🌙 Tema oscuro"
+                            : "💻 Tema del dispositivo"}
+                      </span>
+                    </button>
+
+                    {/* Botón Puerta (Salir) */}
+                    <button
+                      onClick={() => {
+                        setUsuarioActual(null);
+                        localStorage.removeItem("swaos_usuario");
+                      }}
+                      title="Cerrar Sesión"
+                      className="px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 flex items-center gap-2.5 transition-colors border-t border-slate-700/50 mt-1 pt-2"
+                    >
+                      <span className="text-lg">🚪</span>Cerrar sesión
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

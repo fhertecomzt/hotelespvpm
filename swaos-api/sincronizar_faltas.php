@@ -4,10 +4,19 @@ ini_set('display_errors', 0);
 error_reporting(0);
 date_default_timezone_set('America/Mazatlan');
 
-require_once 'auth.php';
-require_once 'db.php';
-header('Content-Type: application/json; charset=utf-8');
 
+require_once 'db.php';
+
+// CANDADO DE SEGURIDAD PARA CRON JOB
+$token_secreto = "SwaosCron2026*$"; // Puedes cambiar esta contraseña por la que gustes
+$token_ingresado = $_GET['token'] ?? '';
+
+if ($token_ingresado !== $token_secreto) {
+  echo json_encode(['success' => false, 'message' => 'Acceso no autorizado.']);
+  exit;
+}
+
+header('Content-Type: application/json; charset=utf-8');
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");

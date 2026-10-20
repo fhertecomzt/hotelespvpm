@@ -44,13 +44,13 @@ export default function DashboardView({ usuarioActual }) {
   };
 
   useEffect(() => {
-    document.title = "SWAOS | Control operativo";
+    document.title = "SWAOS | Gestión operativo";
     const favicon = document.getElementById("favicon");
     if (favicon) favicon.href = "/icono-recepcion.ico";
   }, []);
 
   const [pestañaGerencial, setPestañaGerencial] = useState("metricas"); // 'metricas' o 'auditoria'
-
+  // Tiempo de recarga en tiempo real
   useEffect(() => {
     cargarMetrics(false);
     const intr = setInterval(() => cargarMetrics(true), 15000);
@@ -146,7 +146,7 @@ export default function DashboardView({ usuarioActual }) {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl md:text-2xl font-black text-slate-800 dark:text-white tracking-wide">
-                📊 Control Operativo{" "}
+                📊 Gestión Operativa{" "}
                 {pestañaSaaS && (
                   <span className="text-sm bg-purple-600 text-white px-3 py-1 rounded-full uppercase tracking-widest font-black">
                     SaaS Global
@@ -164,7 +164,7 @@ export default function DashboardView({ usuarioActual }) {
             <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm font-semibold mt-1">
               {pestañaSaaS
                 ? "Monitoreo multi-tenant y licencias de la plataforma"
-                : `Resumen en tiempo real para ${textoHotelHeader}`}
+                : `Resumen para ${textoHotelHeader}`}
             </p>
           </div>
 
@@ -173,6 +173,7 @@ export default function DashboardView({ usuarioActual }) {
             {/* 1. PESTAÑAS (Integradas y enlazadas para salir del SaaS si es necesario) */}
             <div className="flex gap-1 bg-slate-200 dark:bg-slate-700/60 p-1 rounded-2xl w-fit">
               <button
+                title="Key Performance Indicator, o Indicador Clave de Rendimiento"
                 onClick={() => {
                   setPestañaGerencial("metricas");
                   setPestañaSaaS(false);

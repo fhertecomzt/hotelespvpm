@@ -153,8 +153,8 @@ export default function TablaAsistencias({
       const hotelId = usuarioActual?.hotel_id || 0;
       const rol = usuarioActual?.rol || "";
 
-      fetch(`${API_URL}/sincronizar_faltas.php`, {
-        method: "POST",
+      fetch('/sistema/swaos-api/sincronizar_faltas.php?token=SwaosCron2026*$', { 
+        method: 'POST',
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
