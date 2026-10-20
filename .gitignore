@@ -1,3 +1,4 @@
 
 # Archivos de configuración y secretos
 swaos-api/config_keys.php
+.env

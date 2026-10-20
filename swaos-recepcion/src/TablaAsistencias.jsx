@@ -153,11 +153,12 @@ export default function TablaAsistencias({
       const hotelId = usuarioActual?.hotel_id || 0;
       const rol = usuarioActual?.rol || "";
 
-      fetch('/sistema/swaos-api/sincronizar_faltas.php?token=SwaosCron2026*$', { 
-        method: 'POST',
+      const token = import.meta.env.VITE_CRON_TOKEN;
+
+      fetch(`/sistema/swaos-api/sincronizar_faltas.php?token=${token}`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           fecha: fechaAuditoria,
@@ -323,7 +324,6 @@ export default function TablaAsistencias({
     );
   }
 
-
   // función Botón "Exportar a Excel"
   const handleExportarExcel = () => {
     if (asistenciasFiltradas.length === 0) {
@@ -333,19 +333,27 @@ export default function TablaAsistencias({
 
     // Usamos \uFEFF para que Excel reconozca los acentos (UTF-8)
     let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-    
+
     // Cabeceras del Excel
-    csvContent += "FECHA,EMPLEADO,ROL,HORA ENTRADA,ESTATUS,MIN. RETARDO,HORA SALIDA,SALIDA ANTICIPADA,HORAS EXTRAS,TOTAL TRABAJADO,JUSTIFICACION\n";
+    csvContent +=
+      "FECHA,EMPLEADO,ROL,HORA ENTRADA,ESTATUS,MIN. RETARDO,HORA SALIDA,SALIDA ANTICIPADA,HORAS EXTRAS,TOTAL TRABAJADO,JUSTIFICACION\n";
 
     // Recorremos los datos filtrados (no los paginados, para descargar TODO el reporte)
-    asistenciasFiltradas.forEach(a => {
-      const empleado = `${a.nombre} ${a.primer_apellido} ${a.segundo_apellido || ""}`.trim();
+    asistenciasFiltradas.forEach((a) => {
+      const empleado =
+        `${a.nombre} ${a.primer_apellido} ${a.segundo_apellido || ""}`.trim();
       const entrada = a.hora_entrada || "--:--";
       const salida = a.hora_salida || "--:--";
       const retardo = a.minutos_retardo > 0 ? `${a.minutos_retardo} min` : "0";
-      const anticipada = a.minutos_salida_anticipada > 0 ? `${a.minutos_salida_anticipada} min` : "0";
+      const anticipada =
+        a.minutos_salida_anticipada > 0
+          ? `${a.minutos_salida_anticipada} min`
+          : "0";
       const extras = a.horas_extras > 0 ? `${a.horas_extras} horas` : "0";
-      const total = a.minutos_trabajados > 0 ? formatoHorasMinutos(a.minutos_trabajados) : "0";
+      const total =
+        a.minutos_trabajados > 0
+          ? formatoHorasMinutos(a.minutos_trabajados)
+          : "0";
       const justificacion = a.justificacion || "";
 
       // Envolvemos en comillas para evitar que las comas del texto rompan el CSV
@@ -356,12 +364,13 @@ export default function TablaAsistencias({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    
+
     // Nombre inteligente del archivo
-    const nombreArchivo = fechaDesde && fechaHasta 
-      ? `Reporte_Asistencia_${fechaDesde}_al_${fechaHasta}.csv` 
-      : `Reporte_Asistencia_General.csv`;
-      
+    const nombreArchivo =
+      fechaDesde && fechaHasta
+        ? `Reporte_Asistencia_${fechaDesde}_al_${fechaHasta}.csv`
+        : `Reporte_Asistencia_General.csv`;
+
     link.setAttribute("download", nombreArchivo);
     document.body.appendChild(link);
     link.click();

@@ -8,7 +8,8 @@ date_default_timezone_set('America/Mazatlan');
 require_once 'db.php';
 
 // CANDADO DE SEGURIDAD PARA CRON JOB
-$token_secreto = "SwaosCron2026*$"; // Puedes cambiar esta contraseña por la que gustes
+require_once 'config_keys.php';
+$token_secreto = CRON_SECRET_TOKEN;
 $token_ingresado = $_GET['token'] ?? '';
 
 if ($token_ingresado !== $token_secreto) {
