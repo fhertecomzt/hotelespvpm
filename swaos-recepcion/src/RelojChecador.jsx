@@ -15,7 +15,8 @@ export default function RelojChecador({ onVolver }) {
 
   // Referencias para la lógica de la IA
   const faceMatcherRef = useRef(null);
-  const procesandoRef = useRef(false); // Candado para no mandar 100 peticiones por segundo
+  const procesandoRef = useRef(false); // Candado para no mandar peticiones encimadas
+  const enPausaEscaneoRef = useRef(false); // 🛑 NUEVO: Pausa temporal de la cámara tras un registro exitoso
   const intervaloEscaneoRef = useRef(null);
 
   // 1. INICIALIZACIÓN: CARGAR MODELOS Y FOTOS MAESTRO
@@ -45,7 +46,6 @@ export default function RelojChecador({ onVolver }) {
           // Procesar cada foto y extraer sus vectores
           for (const usuario of data.rostros) {
             try {
-              // Obtenemos la imagen usando la URL relativa al proxy de Vite
               const img = await faceapi.fetchImage(
                 `${API_URL}/${usuario.foto_perfil_url}`,
               );
@@ -55,7 +55,6 @@ export default function RelojChecador({ onVolver }) {
                 .withFaceDescriptor();
 
               if (detection) {
-                // Guardamos el ID del usuario como "Etiqueta" de este rostro
                 labeledDescriptors.push(
                   new faceapi.LabeledFaceDescriptors(usuario.id.toString(), [
                     detection.descriptor,
@@ -70,7 +69,6 @@ export default function RelojChecador({ onVolver }) {
           }
 
           if (labeledDescriptors.length > 0) {
-            // Creamos el "Cerebro" comparador con un 50% de estrictez (0.5 de distancia máxima)
             faceMatcherRef.current = new faceapi.FaceMatcher(
               labeledDescriptors,
               0.5,
@@ -91,7 +89,7 @@ export default function RelojChecador({ onVolver }) {
     inicializarSistema();
   }, []);
 
-  // 2. ENCENDER CÁMARA (Una vez que la IA esté entrenada)
+  // 2. ENCENDER CÁMARA
   useEffect(() => {
     let stream = null;
 
@@ -125,11 +123,15 @@ export default function RelojChecador({ onVolver }) {
 
   // 3. ENVIAR ASISTENCIA AL BACKEND CON GPS
   const procesarAsistencia = (usuarioId) => {
+    // Si hay una pausa activa, ignoramos para evitar ejecuciones encimadas
+    if (enPausaEscaneoRef.current) return;
+    enPausaEscaneoRef.current = true; // Bloqueamos la cámara de inmediato
     setEstadoChecador("Rostro Verificado. Obteniendo GPS...");
 
     if (!navigator.geolocation) {
       Swal.fire("Error", "Tu navegador no soporta GPS.", "error");
       procesandoRef.current = false;
+      enPausaEscaneoRef.current = false;
       return;
     }
 
@@ -152,7 +154,6 @@ export default function RelojChecador({ onVolver }) {
           .then((r) => r.json())
           .then((res) => {
             if (res.success) {
-              // 🥳 1. VERIFICAR CELEBRACIONES Y DISPARAR CONFETI
               let tituloCelebracion =
                 res.tipo === "ENTRADA"
                   ? "¡Entrada Registrada!"
@@ -188,57 +189,50 @@ export default function RelojChecador({ onVolver }) {
                 });
               }
 
-              // 📢 2. VERIFICAR SI HAY COMUNICADO DE RH
-              if (res.anuncio) {
-                Swal.fire({
-                  title: tituloCelebracion,
-                  html: `
-                ${mensajeCelebracionHtml}
-                <div class="text-sm text-slate-500 mb-2">Tienes un mensaje de Recursos Humanos:</div>
-                <div class="text-lg font-bold text-slate-700 dark:text-slate-200 p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl border border-indigo-100 dark:border-indigo-800">
-                  ${res.anuncio}
-                </div>
-                <div class="text-sm text-emerald-600 dark:text-emerald-400 mt-5 font-black uppercase tracking-widest">
-                  ✅ ${res.tipo === "ENTRADA" ? "Entrada" : "Salida"} Registrada
-                </div>
-              `,
-                  icon:
-                    res.es_cumpleanos || res.anios_aniversario > 0
-                      ? null
-                      : "info",
-                  confirmButtonText: "👍 Entendido",
-                  confirmButtonColor: "#4f46e5",
-                  allowOutsideClick: false,
-                  customClass: { popup: "rounded-3xl" },
-                }).then(() => {
+              // Configuración unificada y limpia de los modales de éxito / RH
+              const swalConfig = {
+                title: tituloCelebracion,
+                html: res.anuncio
+                  ? `
+                  ${mensajeCelebracionHtml}
+                  <div class="text-sm text-slate-500 mb-2">Tienes un mensaje de Recursos Humanos:</div>
+                  <div class="text-lg font-bold text-slate-700 dark:text-slate-200 p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl border border-indigo-100 dark:border-indigo-800">
+                    ${res.anuncio}
+                  </div>
+                  <div class="text-sm text-emerald-600 dark:text-emerald-400 mt-5 font-black uppercase tracking-widest">
+                    ✅ ${res.tipo === "ENTRADA" ? "Entrada" : "Salida"} Registrada
+                  </div>
+                `
+                  : `${mensajeCelebracionHtml} <div class="text-slate-600 dark:text-slate-300 font-semibold">${res.message}</div>`,
+                icon:
+                  res.es_cumpleanos || res.anios_aniversario > 0 || res.anuncio
+                    ? null
+                    : "success",
+                timer:
+                  res.es_cumpleanos || res.anios_aniversario > 0 || res.anuncio
+                    ? null
+                    : 3500,
+                showConfirmButton:
+                  res.es_cumpleanos || res.anios_aniversario > 0 || res.anuncio
+                    ? true
+                    : false,
+                confirmButtonText: "👍 Entendido",
+                confirmButtonColor: res.es_cumpleanos ? "#ec4899" : "#4f46e5",
+                allowOutsideClick: false,
+                customClass: { popup: "rounded-3xl" },
+              };
+
+              Swal.fire(swalConfig).then(() => {
+                // 🧹 LIMPIEZA TOTAL Y RESGUARDO DE PRIVACIDAD AL CERRAR LA ALERTA
+                // Damos 10 segundos de gracia para que el empleado se aparte de la cámara
+                setTimeout(() => {
+                  enPausaEscaneoRef.current = false;
                   procesandoRef.current = false;
                   setEstadoChecador("Cámara lista. Esperando rostro...");
-                });
-              } else {
-                // 3. FLUJO NORMAL O CELEBRACIÓN SIN AVISO
-                Swal.fire({
-                  title: tituloCelebracion,
-                  html: `${mensajeCelebracionHtml} <div class="text-slate-600 dark:text-slate-300 font-semibold">${res.message}</div>`,
-                  icon:
-                    res.es_cumpleanos || res.anios_aniversario > 0
-                      ? null
-                      : "success",
-                  timer:
-                    res.es_cumpleanos || res.anios_aniversario > 0
-                      ? 6000
-                      : 3500, // Si hay fiesta, les damos más tiempo para verla
-                  showConfirmButton:
-                    res.es_cumpleanos || res.anios_aniversario > 0, // Botón OK si hay fiesta
-                  confirmButtonText: "¡Gracias!",
-                  confirmButtonColor: res.es_cumpleanos ? "#ec4899" : "#f59e0b",
-                  customClass: { popup: "rounded-3xl" },
-                }).then(() => {
-                  procesandoRef.current = false;
-                  setEstadoChecador("Cámara lista. Esperando rostro...");
-                });
-              }
+                }, 10000);
+              });
             } else {
-              // ERROR DE ASISTENCIA (Fuera de horario, geocerca, etc.)
+              // ERROR DE ASISTENCIA (Geocerca, cooldown, etc.)
               Swal.fire({
                 title: "Acceso Denegado",
                 text: res.message,
@@ -246,6 +240,7 @@ export default function RelojChecador({ onVolver }) {
                 customClass: { popup: "rounded-3xl" },
               });
               setTimeout(() => {
+                enPausaEscaneoRef.current = false;
                 procesandoRef.current = false;
                 setEstadoChecador("Cámara lista. Esperando rostro...");
               }, 4000);
@@ -253,6 +248,7 @@ export default function RelojChecador({ onVolver }) {
           })
           .catch(() => {
             Swal.fire("Error", "Fallo de conexión al servidor.", "error");
+            enPausaEscaneoRef.current = false;
             procesandoRef.current = false;
           });
       },
@@ -270,11 +266,12 @@ export default function RelojChecador({ onVolver }) {
         }
 
         Swal.fire("Error GPS (" + err.code + ")", mensajeEspecifico, "error");
+        enPausaEscaneoRef.current = false;
         procesandoRef.current = false;
       },
       {
         enableHighAccuracy: true,
-        timeout: 20000, // Subimos a 20 segundos para darle oportunidad al iPhone
+        timeout: 20000,
         maximumAge: 0,
       },
     );
@@ -283,8 +280,8 @@ export default function RelojChecador({ onVolver }) {
   // 4. CICLO DE ESCANEO DE VIDEO (2 veces por segundo)
   const handleVideoPlay = () => {
     intervaloEscaneoRef.current = setInterval(async () => {
-      // Si ya estamos procesando a alguien, ignoramos el video temporalmente
-      if (procesandoRef.current) return;
+      // 🛑 Si estamos procesando o la cámara está en pausa temporal, ignoramos el ciclo
+      if (procesandoRef.current || enPausaEscaneoRef.current) return;
 
       if (videoRef.current && canvasRef.current && !videoRef.current.paused) {
         const detections = await faceapi
@@ -311,20 +308,16 @@ export default function RelojChecador({ onVolver }) {
         faceapi.draw.drawDetections(canvasRef.current, resizedDetections);
 
         if (detections.length > 0) {
-          // Si no hay base de datos cargada, solo indicamos que vemos una cara
           if (!faceMatcherRef.current) {
             setEstadoChecador("Rostro detectado (Sin base de datos)");
             return;
           }
 
-          // Tomamos el primer rostro que veamos en cámara
           const rostroEnCamara = detections[0].descriptor;
           const mejorCoincidencia =
             faceMatcherRef.current.findBestMatch(rostroEnCamara);
 
-          // Si la distancia es menor a 0.5 (es la persona correcta) y no es "unknown"
           if (mejorCoincidencia.label !== "unknown") {
-            // ¡MATCH ENCONTRADO! Bloqueamos el escáner y disparamos el proceso
             procesandoRef.current = true;
             ctx.clearRect(
               0,

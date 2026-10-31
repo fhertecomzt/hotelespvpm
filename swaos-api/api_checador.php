@@ -79,7 +79,7 @@ try {
             exit;
         }
 
-        // --- NUEVA VALIDACIÓN: EMPLEADO INACTIVO ---
+        // --- VALIDACIÓN: EMPLEADO INACTIVO ---
         if ($empleado['estatus'] !== 'Activo') {
             echo json_encode([
                 'success' => false,
@@ -87,22 +87,32 @@ try {
             ]);
             exit;
         }
-        // -------------------------------------------
 
-        // 2. Validar Geocerca (Anti-Fraudes)
-        if (empty($empleado['latitud']) || empty($empleado['longitud'])) {
-            echo json_encode(['success' => false, 'message' => "El hotel '{$empleado['nombre_hotel']}' no tiene coordenadas GPS configuradas. Comunícate con Administración."]);
-            exit;
+        // 2. VALIDACIÓN MULTI-HOTEL (Permite coberturas automáticas en cualquier sucursal de la cadena)
+        $stmtHoteles = $pdo->query("SELECT id, nombre, latitud, longitud FROM hoteles WHERE latitud IS NOT NULL AND longitud IS NOT NULL");
+        $todos_los_hoteles = $stmtHoteles->fetchAll(PDO::FETCH_ASSOC);
+
+        $hotel_asistencia_id = null;
+        $nombre_hotel_fisico = "";
+
+        // Recorremos todos los hoteles para ver si está a menos de 50 metros de alguno
+        foreach ($todos_los_hoteles as $hotel) {
+            if (empty($hotel['latitud']) || empty($hotel['longitud'])) continue;
+
+            $distancia = calcularDistanciaMetros($latitud_movil, $longitud_movil, floatval($hotel['latitud']), floatval($hotel['longitud']));
+
+            if ($distancia <= 50) {
+                $hotel_asistencia_id = $hotel['id'];
+                $nombre_hotel_fisico = $hotel['nombre'];
+                break; // Encontró la sucursal válida, rompemos el ciclo
+            }
         }
 
-        $distancia = calcularDistanciaMetros($latitud_movil, $longitud_movil, floatval($empleado['latitud']), floatval($empleado['longitud']));
-
-        // REGLA DE NEGOCIO: 50 Metros de radio
-        if ($distancia > 50) {
-            $metrosRedondeados = round($distancia);
+        // Si no está en el radio de 50 metros de ninguna sucursal
+        if (!$hotel_asistencia_id) {
             echo json_encode([
                 'success' => false,
-                'message' => "Registro denegado. Te encuentras a {$metrosRedondeados} metros del hotel. Debes estar dentro de un radio de 50m."
+                'message' => "Registro denegado. No te encuentras dentro del radio permitido (50m) de ninguna de las sucursales del hotel."
             ]);
             exit;
         }
@@ -111,32 +121,70 @@ try {
         $hora_actual = date('H:i:s');
         $coords_actuales = "{$latitud_movil}, {$longitud_movil}";
 
-        // Verificar si ya tiene un registro hoy
-        $stmtCheck = $pdo->prepare("SELECT id, hora_entrada, hora_salida FROM asistencias WHERE usuario_id = ? AND fecha = ?");
-        $stmtCheck->execute([$usuario_id, $fecha_hoy]);
-        $registro_hoy = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+        // ============================================================================
+        // CANDADO INTELIGENTE: Bloquea si ya completó un turno que inició hoy,
+        // permitiendo que los de turno nocturno inicien su jornada a las 10 PM.
+        // ============================================================================
+        $stmtCandadoHoy = $pdo->prepare("
+            SELECT id FROM asistencias 
+            WHERE usuario_id = ? 
+              AND fecha = ? 
+              AND hora_salida IS NOT NULL
+            LIMIT 1
+        ");
+        $stmtCandadoHoy->execute([$usuario_id, $fecha_hoy]);
 
-        // 2.5 Validar si hoy es su día de descanso
-        $dias_espanol = [
-            'Monday' => 'Lunes',
-            'Tuesday' => 'Martes',
-            'Wednesday' => 'Miércoles',
-            'Thursday' => 'Jueves',
-            'Friday' => 'Viernes',
-            'Saturday' => 'Sábado',
-            'Sunday' => 'Domingo'
-        ];
-        $dia_hoy_ingles = date('l');
-        $dia_hoy_espanol = $dias_espanol[$dia_hoy_ingles];
-
-        $dias_descanso = json_decode($empleado['dias_descanso'] ?? '[]', true);
-
-        if (is_array($dias_descanso) && in_array($dia_hoy_espanol, $dias_descanso)) {
+        if ($stmtCandadoHoy->fetch()) {
             echo json_encode([
                 'success' => false,
-                'message' => "Hoy es $dia_hoy_espanol, tu día de descanso. ¡Desconéctate y disfruta tu día!"
+                'message' => "Ya registraste asistencia y concluiste tu turno el día de hoy. ¡Buen descanso!"
             ]);
             exit;
+        }
+        // ============================================================================
+
+        // Verificar si ya tiene un registro hoy (ABIERTO)
+        // AHORA: Buscamos si tiene un registro ABIERTO (sin hora de salida) 
+        // ya sea hoy o que venga arrastrando desde anoche (turno nocturno)
+        // 💡 CORRECCIÓN: Ignoramos filas que sean Falta, Descanso, Permisos o Incapacidad
+        $stmtCheck = $pdo->prepare("
+            SELECT id, fecha, hora_entrada, hora_salida 
+            FROM asistencias 
+            WHERE usuario_id = ? 
+              AND hora_salida IS NULL 
+              AND estatus_entrada NOT IN ('Falta', 'Día de Descanso', 'Incapacidad', 'Permiso')
+              AND (fecha = ? OR fecha = DATE_SUB(?, INTERVAL 1 DAY)) 
+            ORDER BY fecha DESC, hora_entrada DESC 
+            LIMIT 1
+        ");
+        $stmtCheck->execute([$usuario_id, $fecha_hoy, $fecha_hoy]);
+        $registro_abierto = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+        // 2.5 Validar si hoy es su día de descanso
+        // 💡 CAMBIO: Solo validamos el día de descanso si NO tiene un registro abierto 
+        // (es decir, si está intentando iniciar turno. Si tiene registro abierto, está cerrando su salida y debe permitírsele).
+        if (!$registro_abierto) {
+            $dias_espanol = [
+                'Monday' => 'Lunes',
+                'Tuesday' => 'Martes',
+                'Wednesday' => 'Miércoles',
+                'Thursday' => 'Jueves',
+                'Friday' => 'Viernes',
+                'Saturday' => 'Sábado',
+                'Sunday' => 'Domingo'
+            ];
+            $dia_hoy_ingles = date('l');
+            $dia_hoy_espanol = $dias_espanol[$dia_hoy_ingles];
+
+            $dias_descanso = json_decode($empleado['dias_descanso'] ?? '[]', true);
+
+            if (is_array($dias_descanso) && in_array($dia_hoy_espanol, $dias_descanso)) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => "Hoy es $dia_hoy_espanol, tu día de descanso. ¡Desconéctate y disfruta tu día!"
+                ]);
+                exit;
+            }
         }
 
         // ============================================================================
@@ -191,7 +239,24 @@ try {
         // --- FIN MÓDULO COMUNICADOS RH ---
         // ============================================================================
 
-        if (!$registro_hoy) {
+
+        // ============================================================================
+        // CANDADO PREVENTIVO: Cierre automático de turnos huérfanos de días anteriores
+        // ============================================================================
+        $stmtCierreHuérfano = $pdo->prepare("
+            UPDATE asistencias 
+            SET hora_salida = hora_entrada, 
+                estatus_salida = 'Sin Registro', 
+                minutos_trabajados = 0 
+            WHERE usuario_id = ? 
+              AND hora_salida IS NULL 
+              AND fecha < ? 
+              AND estatus_entrada NOT IN ('Falta', 'Día de Descanso', 'Incapacidad', 'Permiso')
+        ");
+        $stmtCierreHuérfano->execute([$usuario_id, $fecha_hoy]);
+        // ============================================================================
+
+        if (!$registro_abierto) {
             // ==========================================
             // 3. Lógica de Entrada / ES EL PRIMER CHEQUEO DEL DÍA (ENTRADA)
             // ==========================================
@@ -215,7 +280,7 @@ try {
 
             // Insertamos sumando el campo minutos_retardo
             $stmtInsert = $pdo->prepare("INSERT INTO asistencias (usuario_id, hotel_id, fecha, hora_entrada, coordenadas_entrada, estatus_entrada, minutos_retardo) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmtInsert->execute([$usuario_id, $empleado['hotel_base_id'], $fecha_hoy, $hora_actual, $coords_actuales, $estatus_entrada, $minutos_retardo]);
+            $stmtInsert->execute([$usuario_id, $hotel_asistencia_id, $fecha_hoy, $hora_actual, $coords_actuales, $estatus_entrada, $minutos_retardo]);
 
             echo json_encode([
                 'success' => true,
@@ -230,18 +295,20 @@ try {
             // ==========================================
             // YA TIENE REGISTRO HOY (SALIDA)
             // ==========================================
-            if (empty($registro_hoy['hora_salida'])) {
+            if (empty($registro_abierto['hora_salida'])) {
 
-                // --- VALIDACIÓN: ANTIRREBOTE (COOLDOWN) ---
-                $tiempo_entrada = strtotime($registro_hoy['hora_entrada']);
-                $tiempo_ahora = strtotime($hora_actual);
+                // --- VALIDACIÓN: ANTIRREBOTE (COOLDOWN) CORREGIDO ---
+                // Unimos la fecha y la hora exacta para que soporte turnos nocturnos correctamente
+                $tiempo_entrada = strtotime($registro_abierto['fecha'] . ' ' . $registro_abierto['hora_entrada']);
+                $tiempo_ahora = strtotime($fecha_hoy . ' ' . $hora_actual);
+
                 $minutos_transcurridos = round(($tiempo_ahora - $tiempo_entrada) / 60);
 
-                // Bloqueamos si han pasado menos de 3 minutos
-                if ($minutos_transcurridos < 3) {
+                // Bloqueamos si han pasado menos de 50 minutos
+                if ($minutos_transcurridos < 50) {
                     echo json_encode([
                         'success' => false,
-                        'message' => "Acabas de registrar tu entrada. Por seguridad, espera al menos 3 minutos antes de registrar tu salida."
+                        'message' => "Acabas de registrar tu entrada. Por seguridad, espera al menos 50 minutos antes de registrar tu salida."
                     ]);
                     exit;
                 }
@@ -276,7 +343,7 @@ try {
 
                 // Actualizamos agregando la columna horas_extras
                 $stmtUpdate = $pdo->prepare("UPDATE asistencias SET hora_salida = ?, coordenadas_salida = ?, estatus_salida = ?, minutos_salida_anticipada = ?, horas_extras = ?, minutos_trabajados = ? WHERE id = ?");
-                $stmtUpdate->execute([$hora_actual, $coords_actuales, $estatus_salida, $minutos_salida_anticipada, $horas_extras, $minutos_trabajados, $registro_hoy['id']]);
+                $stmtUpdate->execute([$hora_actual, $coords_actuales, $estatus_salida, $minutos_salida_anticipada, $horas_extras, $minutos_trabajados, $registro_abierto['id']]);
 
                 // Mensaje dinámico para el Kiosco
                 $msg_extra = ".";

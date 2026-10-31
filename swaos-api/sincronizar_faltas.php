@@ -28,9 +28,9 @@ $data = json_decode(file_get_contents("php://input"), true) ?: $_POST;
 $hotel_id = intval($data['hotel_id'] ?? 0);
 $rol_solicitante = $data['rol_solicitante'] ?? '';
 
-// Por defecto, si no mandan fecha, auditamos "ayer"
-$ayer = date('Y-m-d', strtotime('-1 day'));
-$fecha_evaluar = $data['fecha'] ?? $ayer;
+// 💡 MEJORA: Forzamos el cálculo de "ayer" de forma robusta con la zona horaria configurada
+$fecha_ayer = date('Y-m-d', strtotime('yesterday'));
+$fecha_evaluar = $data['fecha'] ?? $fecha_ayer;
 
 try {
   // 1. Obtener empleados ACTIVOS con horario (¡AGREGAMOS dias_descanso y la exclusión de asistencia!)

@@ -36,6 +36,12 @@ try {
     exit;
   }
 
+  // Mantener los valores actuales si no se enviaron en la modificación
+  $h_in_final = $hora_entrada ? date('H:i:s', strtotime($hora_entrada)) : $registro['hora_entrada'];
+  $h_out_final = $hora_salida ? date('H:i:s', strtotime($hora_salida)) : $registro['hora_salida'];
+
+  $fecha_registro = $registro['fecha'];
+
   $estatus_entrada = $registro['estatus_entrada'];
   $minutos_retardo = $registro['minutos_retardo'];
   $estatus_salida = $registro['estatus_salida'];
@@ -57,22 +63,33 @@ try {
     }
   }
 
-  // 3. RECALCULAR SALIDA Y TOTAL TRABAJADO
-  if ($hora_salida) {
-    $real_in_calc = $hora_entrada ? strtotime($hora_entrada) : strtotime($registro['hora_entrada']);
-    $real_out = strtotime($hora_salida);
+  // 3. RECALCULAR SALIDA Y TOTAL TRABAJADO (Soporte Turnos Nocturnos)
+  if ($h_out_final && $h_in_final) {
+    $timestamp_entrada = strtotime("$fecha_registro $h_in_final");
 
-    // Calcular minutos totales trabajados
-    if ($real_out > $real_in_calc) {
-      $minutos_trabajados = round(($real_out - $real_in_calc) / 60);
+    // Si la hora de salida es menor a la de entrada, significa que cruzó la medianoche (turno nocturno)
+    $fecha_salida = $fecha_registro;
+    if (strtotime($h_out_final) < strtotime($h_in_final)) {
+      $fecha_salida = date('Y-m-d', strtotime("$fecha_registro +1 day"));
+    }
+
+    $timestamp_salida = strtotime("$fecha_salida $h_out_final");
+
+    // Calcular minutos totales trabajados con precisión de fechas
+    if ($timestamp_salida > $timestamp_entrada) {
+      $minutos_trabajados = round(($timestamp_salida - $timestamp_entrada) / 60);
+    } else {
+      $minutos_trabajados = 0;
     }
 
     if ($registro['oficial_salida']) {
       $estatus_salida = "A Tiempo";
       $minutos_anticipada = 0;
       $horas_extras = 0;
-      $oficial_out = strtotime($registro['oficial_salida']);
-      $dif_out = round(($real_out - $oficial_out) / 60);
+
+      // Tomamos en cuenta la fecha de salida correcta para comparar con el horario oficial
+      $timestamp_oficial_salida = strtotime("$fecha_salida " . $registro['oficial_salida']);
+      $dif_out = round(($timestamp_salida - $timestamp_oficial_salida) / 60);
 
       if ($dif_out < 0) {
         $estatus_salida = "Salida Anticipada";
@@ -86,14 +103,12 @@ try {
   // 4. Anexar justificación
   $justificacion_previa = $registro['justificacion'] ? $registro['justificacion'] . " | " : "";
   $nueva_justificacion = $justificacion_previa . "Ajuste HR: " . $motivo;
-  $h_in = $hora_entrada ? date('H:i:s', strtotime($hora_entrada)) : null;
-  $h_out = $hora_salida ? date('H:i:s', strtotime($hora_salida)) : null;
 
-  // 5. Actualizar la base de datos
+  // 5. Actualizar la base de datos de forma segura
   $stmtUpd = $pdo->prepare("UPDATE asistencias SET hora_entrada=?, hora_salida=?, estatus_entrada=?, estatus_salida=?, minutos_retardo=?, minutos_salida_anticipada=?, horas_extras=?, minutos_trabajados=?, justificacion=? WHERE id=?");
-  $stmtUpd->execute([$h_in, $h_out, $estatus_entrada, $estatus_salida, $minutos_retardo, $minutos_anticipada, $horas_extras, $minutos_trabajados, $nueva_justificacion, $asistencia_id]);
+  $stmtUpd->execute([$h_in_final, $h_out_final, $estatus_entrada, $estatus_salida, $minutos_retardo, $minutos_anticipada, $horas_extras, $minutos_trabajados, $nueva_justificacion, $asistencia_id]);
 
-  echo json_encode(['success' => true, 'message' => 'Corrección aplicada. Cálculos de tiempo actualizados.']);
+  echo json_encode(['success' => true, 'message' => 'Corrección aplicada con éxito. Cálculos de tiempo actualizados.']);
 } catch (Exception $e) {
   echo json_encode(['success' => false, 'message' => 'Error SQL: ' . $e->getMessage()]);
 }
