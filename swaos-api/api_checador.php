@@ -122,6 +122,23 @@ try {
         $coords_actuales = "{$latitud_movil}, {$longitud_movil}";
 
         // ============================================================================
+        // 1. CANDADO PREVENTIVO: Cierre automático de turnos huérfanos de días anteriores
+        // (Debe ir aquí arriba para limpiar el camino antes de buscar registros abiertos)
+        // ============================================================================
+        $stmtCierreHuérfano = $pdo->prepare("
+            UPDATE asistencias 
+            SET hora_salida = hora_entrada, 
+                estatus_salida = 'Sin Registro', 
+                minutos_trabajados = 0 
+            WHERE usuario_id = ? 
+              AND hora_salida IS NULL 
+              AND fecha < ? 
+              AND estatus_entrada NOT IN ('Falta', 'Día de Descanso', 'Incapacidad', 'Permiso')
+        ");
+        $stmtCierreHuérfano->execute([$usuario_id, $fecha_hoy]);
+        // ============================================================================
+
+        // ============================================================================
         // CANDADO INTELIGENTE: Bloquea si ya completó un turno que inició hoy,
         // permitiendo que los de turno nocturno inicien su jornada a las 10 PM.
         // ============================================================================
@@ -142,7 +159,7 @@ try {
             exit;
         }
         // ============================================================================
-
+        // 2. AHORA SÍ: Verificar si ya tiene un registro abierto (ya sin estorbar los turnos viejos)
         // Verificar si ya tiene un registro hoy (ABIERTO)
         // AHORA: Buscamos si tiene un registro ABIERTO (sin hora de salida) 
         // ya sea hoy o que venga arrastrando desde anoche (turno nocturno)
@@ -237,23 +254,6 @@ try {
         }
         // ============================================================================
         // --- FIN MÓDULO COMUNICADOS RH ---
-        // ============================================================================
-
-
-        // ============================================================================
-        // CANDADO PREVENTIVO: Cierre automático de turnos huérfanos de días anteriores
-        // ============================================================================
-        $stmtCierreHuérfano = $pdo->prepare("
-            UPDATE asistencias 
-            SET hora_salida = hora_entrada, 
-                estatus_salida = 'Sin Registro', 
-                minutos_trabajados = 0 
-            WHERE usuario_id = ? 
-              AND hora_salida IS NULL 
-              AND fecha < ? 
-              AND estatus_entrada NOT IN ('Falta', 'Día de Descanso', 'Incapacidad', 'Permiso')
-        ");
-        $stmtCierreHuérfano->execute([$usuario_id, $fecha_hoy]);
         // ============================================================================
 
         if (!$registro_abierto) {

@@ -101,16 +101,6 @@ export default function Login({ setUsuarioActual }) {
 
   return (
     <div className="min-h-screen flex bg-slate-50 font-sans relative">
-      {/* ¡AQUÍ ESTÁ EL BOTÓN FLOTANTE QUE FALTABA! */}
-      <div className="absolute top-6 right-6 z-50">
-        <button
-          onClick={() => setModoVista("checador")}
-          className="bg-white/80 backdrop-blur-md border border-slate-200 shadow-lg text-slate-700 hover:text-indigo-600 px-5 py-2.5 rounded-2xl font-black text-sm transition-all flex items-center gap-2 hover:-translate-y-0.5"
-        >
-          <span className="text-xl">📷</span> Reloj Checador Facial
-        </button>
-      </div>
-
       {/* PANEL IZQUIERDO - BRANDING (Oculto en móviles, 50% en PC) */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden items-center justify-center">
         {/* Efectos de iluminación de fondo */}
@@ -181,16 +171,36 @@ export default function Login({ setUsuarioActual }) {
       {/* PANEL DERECHO - FORMULARIO */}
       <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 relative">
         <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl border border-slate-100 p-8 sm:p-10 relative z-10">
-          <div className="text-center mb-8">
-            <div className="lg:hidden w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-3xl shadow-lg mx-auto mb-5">
-              S
+          {/* SECCIÓN DE ACCESO RÁPIDO: RELOJ CHECADOR */}
+          <div className="text-center mb-6 flex flex-col items-center">
+            <div className="w-full mb-4">
+              <button
+                onClick={() => setModoVista("checador")}
+                className="w-full bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 px-5 py-3.5 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-3 shadow-sm hover:shadow group"
+              >
+                <span className="text-xl bg-white p-2 rounded-xl shadow-xs group-hover:scale-110 transition-transform">
+                  📷
+                </span>
+                <div className="text-left">
+                  <div className="font-black text-indigo-900">
+                    Reloj Checador Facial
+                  </div>
+                  <div className="text-xs text-indigo-500 font-medium">
+                    Entrada y salida de personal
+                  </div>
+                </div>
+              </button>
             </div>
-            <h2 className="text-3xl font-black text-slate-800">
-              Iniciar Sesión
-            </h2>
-            <p className="text-sm font-bold text-slate-500 mt-2 uppercase tracking-wider">
-              Acceso Operativo
-            </p>
+
+            {/* Divisor elegante */}
+            <div className="relative w-full flex items-center justify-center my-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200"></div>
+              </div>
+              <span className="relative px-3 bg-white text-xs font-bold text-slate-400 uppercase tracking-wider">
+                O acceso administrativo
+              </span>
+            </div>
           </div>
 
           {error && (
@@ -314,7 +324,7 @@ export default function Login({ setUsuarioActual }) {
               className={`w-full py-4 rounded-xl text-white font-black text-sm uppercase tracking-wider shadow-lg transition-all ${
                 cargando
                   ? "bg-indigo-400 cursor-not-allowed"
-                  : "bg-indigo-600 hover:bg-indigo-700 hover:shadow-indigo-500/30 hover:-translate-y-0.5"
+                  : "bg-indigo-500 hover:bg-indigo-700 hover:shadow-indigo-500/30 hover:-translate-y-0.5"
               }`}
             >
               {cargando ? (
