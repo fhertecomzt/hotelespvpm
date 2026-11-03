@@ -12,6 +12,8 @@ export default function TablaAsistencias({
   hoteles = [],
   usuarios = [],
 }) {
+  const esSuperusuario = usuarioActual?.rol === "Superusuario";
+
   // Validamos si es Superusuario o si tiene el permiso específico de editar asistencias
   const puedeEditar =
     usuarioActual?.rol === "Superusuario" ||
@@ -502,6 +504,68 @@ export default function TablaAsistencias({
     XLSX.writeFile(workbook, nombreArchivo);
   };
 
+  // ==========================================
+  // ELIMINADOR ASISTENCIA
+  // ==========================================
+  const handleEliminarItem = async (id, tabla, nombreItem) => {
+    const esOscuro = document.documentElement.classList.contains("dark");
+
+    const confirmacion = await Swal.fire({
+      title: "¿Eliminar permanentemente?",
+      text: `Estás a punto de borrar "${nombreItem}" Una vez eliminado, no podrás recuperar su información.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#e11d48",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Sí, eliminar ahora",
+      cancelButtonText: "Cancelar",
+      background: esOscuro ? "#1e293b" : "#ffffff",
+      color: esOscuro ? "#f8fafc" : "#0f172a",
+      customClass: {
+        popup:
+          "border border-slate-200 dark:border-slate-700 shadow-2xl rounded-3xl",
+        confirmButton: "rounded-xl font-bold px-5 py-2.5 text-sm",
+        cancelButton: "rounded-xl font-bold px-5 py-2.5 text-sm",
+      },
+    });
+
+    if (!confirmacion.isConfirmed) return;
+
+    // Candado de seguridad Offline (después de confirmar)
+    if (!navigator.onLine) {
+      alertaToast(
+        "error",
+        "⚡ Sin conexión. No se puede eliminar el registro en este momento.",
+      );
+      return;
+    }
+
+    const url =
+      tabla === "asistencias"
+        ? `${API_URL}/eliminar_asistencia.php`
+        : `${API_URL}/gestion_inventario.php?accion=eliminar_item`;
+    const body = tabla === "asistencias" ? { id } : { id, tabla };
+
+    fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) {
+          alertaToast("success", res.message);
+          cargarAsistencias();
+        } else {
+          alertaToast("error", res.message);
+        }
+      })
+      .catch(() => alertaToast("error", "Fallo de conexión al eliminar"));
+  };
+
   return (
     <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
       <div className="p-6 border-b border-slate-100 dark:border-slate-700/80 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-slate-50/50 dark:bg-slate-800/40">
@@ -632,13 +696,13 @@ export default function TablaAsistencias({
         <table className="w-full text-left border-collapse min-w-[900px]">
           <thead>
             <tr className="bg-slate-100 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 text-[11px] font-black uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-              <th className="p-4">Fecha</th>
-              <th className="p-4">Empleado</th>
-              <th className="p-4">Rol</th>
-              <th className="p-4">Hora Entrada</th>
-              <th className="p-4">Estatus</th>
-              <th className="p-4">Hora Salida</th>
-              <th className="p-4">Acciones</th>
+              <th className="p-2">Fecha</th>
+              <th className="p-2">Empleado</th>
+              <th className="p-2">Rol</th>
+              <th className="p-2">Hora Entrada</th>
+              <th className="p-2">Estatus</th>
+              <th className="p-2">Hora Salida</th>
+              <th className="p-2 text-center">Acciones</th>
             </tr>
           </thead>
 
@@ -745,14 +809,32 @@ export default function TablaAsistencias({
 
                     {/* MODAL EDITAR ASISTENCIAS */}
                     <td className="p-4">
-                      {puedeEditar && (
-                        <button
-                          onClick={() => abrirModalEdicion(a)}
-                          className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 p-2 rounded-lg transition-colors title='Corregir'"
-                        >
-                          ✏️
-                        </button>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {puedeEditar && (
+                          <button
+                            onClick={() => abrirModalEdicion(a)}
+                            className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 whitespace-nowrap"
+                          >
+                            ✏️ Editar
+                          </button>
+                        )}
+
+                        {/* ELIMINAR ASISTENCIAS */}
+                        {esSuperusuario && a.id !== 1 && (
+                          <button
+                            onClick={() =>
+                              handleEliminarItem(
+                                a.id,
+                                "asistencias",
+                                nombreComp,
+                              )
+                            }
+                            className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 whitespace-nowrap"
+                          >
+                            🗑️ Borrar
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

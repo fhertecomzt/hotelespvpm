@@ -122,78 +122,76 @@ export default function RelojChecador({ onVolver }) {
   }, [listoParaEscanear]);
 
   // 3. ENVIAR ASISTENCIA AL BACKEND CON GPS
-  const procesarAsistencia = (usuarioId) => {
-    // Si hay una pausa activa, ignoramos para evitar ejecuciones encimadas
-    if (enPausaEscaneoRef.current) return;
-    enPausaEscaneoRef.current = true; // Bloqueamos la cámara de inmediato
-    setEstadoChecador("Rostro Verificado. Obteniendo GPS...");
+const procesarAsistencia = (usuarioId) => {
+  if (procesandoRef.current) return; // Si ya hay una petición en vuelo, ignoramos
+  procesandoRef.current = true;
+  setEstadoChecador("Rostro Verificado. Obteniendo GPS...");
 
-    if (!navigator.geolocation) {
-      Swal.fire("Error", "Tu navegador no soporta GPS.", "error");
-      procesandoRef.current = false;
-      enPausaEscaneoRef.current = false;
-      return;
-    }
+  if (!navigator.geolocation) {
+    Swal.fire("Error", "Tu navegador no soporta GPS.", "error");
+    procesandoRef.current = false; // Liberamos candado si falla
+    return;
+  }
 
-    navigator.geolocation.getCurrentPosition(
-      (posicion) => {
-        const { latitude, longitude } = posicion.coords;
+  navigator.geolocation.getCurrentPosition(
+    (posicion) => {
+      const { latitude, longitude } = posicion.coords;
 
-        setEstadoChecador("Validando geocerca y registrando...");
+      setEstadoChecador("Validando geocerca y registrando...");
 
-        fetch(`${API_URL}/api_checador.php`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            accion: "registrar_asistencia",
-            usuario_id: usuarioId,
-            latitud: latitude,
-            longitud: longitude,
-          }),
-        })
-          .then((r) => r.json())
-          .then((res) => {
-            if (res.success) {
-              let tituloCelebracion =
-                res.tipo === "ENTRADA"
-                  ? "¡Entrada Registrada!"
-                  : "¡Salida Registrada!";
-              let mensajeCelebracionHtml = "";
+      fetch(`${API_URL}/api_checador.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accion: "registrar_asistencia",
+          usuario_id: usuarioId,
+          latitud: latitude,
+          longitud: longitude,
+        }),
+      })
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.success) {
+            let tituloCelebracion =
+              res.tipo === "ENTRADA"
+                ? "¡Entrada Registrada!"
+                : "¡Salida Registrada!";
+            let mensajeCelebracionHtml = "";
 
-              if (res.es_cumpleanos) {
-                tituloCelebracion = `🎉 ¡Feliz Cumpleaños, ${res.nombre_empleado}! 🎂`;
-                mensajeCelebracionHtml = `<div class="text-pink-600 dark:text-pink-400 font-black text-lg mb-2">¡Que tengas un día espectacular! 🎈</div>`;
-                confetti({
-                  particleCount: 200,
-                  spread: 100,
-                  origin: { y: 0.5 },
-                  zIndex: 9999,
-                  colors: [
-                    "#ff0a54",
-                    "#ff477e",
-                    "#ff7096",
-                    "#ff85a1",
-                    "#fbb1bd",
-                    "#f9bec7",
-                  ],
-                });
-              } else if (res.anios_aniversario > 0) {
-                tituloCelebracion = `🏆 ¡Feliz ${res.anios_aniversario}° Aniversario! 🌟`;
-                mensajeCelebracionHtml = `<div class="text-amber-500 font-black text-lg mb-2">Gracias por ser parte de nuestra historia. 👏</div>`;
-                confetti({
-                  particleCount: 150,
-                  spread: 90,
-                  origin: { y: 0.5 },
-                  zIndex: 9999,
-                  colors: ["#fbbf24", "#f59e0b", "#d97706", "#ffffff"],
-                });
-              }
+            if (res.es_cumpleanos) {
+              tituloCelebracion = `🎉 ¡Feliz Cumpleaños, ${res.nombre_empleado}! 🎂`;
+              mensajeCelebracionHtml = `<div class="text-pink-600 dark:text-pink-400 font-black text-lg mb-2">¡Que tengas un día espectacular! 🎈</div>`;
+              confetti({
+                particleCount: 200,
+                spread: 100,
+                origin: { y: 0.5 },
+                zIndex: 9999,
+                colors: [
+                  "#ff0a54",
+                  "#ff477e",
+                  "#ff7096",
+                  "#ff85a1",
+                  "#fbb1bd",
+                  "#f9bec7",
+                ],
+              });
+            } else if (res.anios_aniversario > 0) {
+              tituloCelebracion = `🏆 ¡Feliz ${res.anios_aniversario}° Aniversario! 🌟`;
+              mensajeCelebracionHtml = `<div class="text-amber-500 font-black text-lg mb-2">Gracias por ser parte de nuestra historia. 👏</div>`;
+              confetti({
+                particleCount: 150,
+                spread: 90,
+                origin: { y: 0.5 },
+                zIndex: 9999,
+                colors: ["#fbbf24", "#f59e0b", "#d97706", "#ffffff"],
+              });
+            }
 
-              // Configuración unificada y limpia de los modales de éxito / RH
-              const swalConfig = {
-                title: tituloCelebracion,
-                html: res.anuncio
-                  ? `
+            // Configuración unificada y limpia de los modales de éxito / RH
+            const swalConfig = {
+              title: tituloCelebracion,
+              html: res.anuncio
+                ? `
                   ${mensajeCelebracionHtml}
                   <div class="text-sm text-slate-500 mb-2">Tienes un mensaje de Recursos Humanos:</div>
                   <div class="text-lg font-bold text-slate-700 dark:text-slate-200 p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl border border-indigo-100 dark:border-indigo-800">
@@ -203,138 +201,131 @@ export default function RelojChecador({ onVolver }) {
                     ✅ ${res.tipo === "ENTRADA" ? "Entrada" : "Salida"} Registrada
                   </div>
                 `
-                  : `${mensajeCelebracionHtml} <div class="text-slate-600 dark:text-slate-300 font-semibold">${res.message}</div>`,
-                icon:
-                  res.es_cumpleanos || res.anios_aniversario > 0 || res.anuncio
-                    ? null
-                    : "success",
-                timer:
-                  res.es_cumpleanos || res.anios_aniversario > 0 || res.anuncio
-                    ? null
-                    : 3500,
-                showConfirmButton:
-                  res.es_cumpleanos || res.anios_aniversario > 0 || res.anuncio
-                    ? true
-                    : false,
-                confirmButtonText: "👍 Entendido",
-                confirmButtonColor: res.es_cumpleanos ? "#ec4899" : "#4f46e5",
-                allowOutsideClick: false,
-                customClass: { popup: "rounded-3xl" },
-              };
+                : `${mensajeCelebracionHtml} <div class="text-slate-600 dark:text-slate-300 font-semibold">${res.message}</div>`,
+              icon:
+                res.es_cumpleanos || res.anios_aniversario > 0 || res.anuncio
+                  ? null
+                  : "success",
+              timer:
+                res.es_cumpleanos || res.anios_aniversario > 0 || res.anuncio
+                  ? null
+                  : 3500,
+              showConfirmButton:
+                res.es_cumpleanos || res.anios_aniversario > 0 || res.anuncio
+                  ? true
+                  : false,
+              confirmButtonText: "👍 Entendido",
+              confirmButtonColor: res.es_cumpleanos ? "#ec4899" : "#4f46e5",
+              allowOutsideClick: false,
+              customClass: { popup: "rounded-3xl" },
+            };
 
-              Swal.fire(swalConfig).then(() => {
-                // 🧹 LIMPIEZA TOTAL Y RESGUARDO DE PRIVACIDAD AL CERRAR LA ALERTA
-                // Damos 10 segundos de gracia para que el empleado se aparte de la cámara
-                setTimeout(() => {
-                  enPausaEscaneoRef.current = false;
-                  procesandoRef.current = false;
-                  setEstadoChecador("Cámara lista. Esperando rostro...");
-                }, 10000);
-              });
-            } else {
-              // ERROR DE ASISTENCIA (Geocerca, cooldown, etc.)
-              Swal.fire({
-                title: "Acceso Denegado",
-                text: res.message,
-                icon: "error",
-                customClass: { popup: "rounded-3xl" },
-              });
+            Swal.fire(swalConfig).then(() => {
+              // 🧹 LIMPIEZA TOTAL Y RESGUARDO DE PRIVACIDAD AL CERRAR LA ALERTA
+              // Damos 10 segundos de gracia para que el empleado se aparte de la cámara
               setTimeout(() => {
                 enPausaEscaneoRef.current = false;
                 procesandoRef.current = false;
                 setEstadoChecador("Cámara lista. Esperando rostro...");
-              }, 4000);
-            }
-          })
-          .catch(() => {
-            Swal.fire("Error", "Fallo de conexión al servidor.", "error");
-            enPausaEscaneoRef.current = false;
-            procesandoRef.current = false;
-          });
-      },
-      (err) => {
-        console.error("Error GPS detallado (Código):", err.code, err.message);
+              }, 10000);
+            });
+          } else {
+            // ERROR DE ASISTENCIA (Geocerca, cooldown, etc.)
+            Swal.fire({
+              title: "Acceso Denegado",
+              text: res.message,
+              icon: "error",
+              customClass: { popup: "rounded-3xl" },
+            });
+            setTimeout(() => {
+              enPausaEscaneoRef.current = false;
+              procesandoRef.current = false;
+              setEstadoChecador("Cámara lista. Esperando rostro...");
+            }, 4000);
+          }
+        })
+        .catch(() => {
+          Swal.fire("Error", "Fallo de conexión al servidor.", "error");
+          enPausaEscaneoRef.current = false;
+          procesandoRef.current = false;
+        });
+    },
+    (err) => {
+      console.error("Error GPS detallado (Código):", err.code, err.message);
 
-        let mensajeEspecifico =
-          "Debes permitir el acceso a tu ubicación para checar.";
-        if (err.code === 1) {
-          mensajeEspecifico =
-            "Permiso de ubicación denegado en el iPhone. Revisa que Safari tenga acceso al GPS en los Ajustes de iOS.";
-        } else if (err.code === 3) {
-          mensajeEspecifico =
-            "El iPhone tardó demasiado en obtener la señal GPS (Timeout). Inténtalo cerca de una ventana o área abierta.";
-        }
+      let mensajeEspecifico =
+        "Debes permitir el acceso a tu ubicación para checar.";
+      if (err.code === 1) {
+        mensajeEspecifico =
+          "Permiso de ubicación denegado en el iPhone. Revisa que Safari tenga acceso al GPS en los Ajustes de iOS.";
+      } else if (err.code === 3) {
+        mensajeEspecifico =
+          "El iPhone tardó demasiado en obtener la señal GPS (Timeout). Inténtalo cerca de una ventana o área abierta.";
+      }
 
-        Swal.fire("Error GPS (" + err.code + ")", mensajeEspecifico, "error");
-        enPausaEscaneoRef.current = false;
-        procesandoRef.current = false;
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 0,
-      },
-    );
-  };
+      Swal.fire("Error GPS (" + err.code + ")", mensajeEspecifico, "error");
+      enPausaEscaneoRef.current = false;
+      procesandoRef.current = false;
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 20000,
+      maximumAge: 0,
+    },
+  );
+};
 
   // 4. CICLO DE ESCANEO DE VIDEO (2 veces por segundo)
-  const handleVideoPlay = () => {
-    intervaloEscaneoRef.current = setInterval(async () => {
-      // 🛑 Si estamos procesando o la cámara está en pausa temporal, ignoramos el ciclo
-      if (procesandoRef.current || enPausaEscaneoRef.current) return;
+const handleVideoPlay = () => {
+  intervaloEscaneoRef.current = setInterval(async () => {
+    // 🛑 Si ya está procesando una asistencia, saltamos este ciclo para no encimar peticiones
+    if (procesandoRef.current) return;
 
-      if (videoRef.current && canvasRef.current && !videoRef.current.paused) {
-        const detections = await faceapi
-          .detectAllFaces(
-            videoRef.current,
-            new faceapi.TinyFaceDetectorOptions(),
-          )
-          .withFaceLandmarks()
-          .withFaceDescriptors();
+    if (videoRef.current && canvasRef.current && !videoRef.current.paused) {
+      const detections = await faceapi
+        .detectAllFaces(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptors();
 
-        const displaySize = {
-          width: videoRef.current.videoWidth,
-          height: videoRef.current.videoHeight,
-        };
+      const displaySize = {
+        width: videoRef.current.videoWidth,
+        height: videoRef.current.videoHeight,
+      };
 
-        faceapi.matchDimensions(canvasRef.current, displaySize);
-        const resizedDetections = faceapi.resizeResults(
-          detections,
-          displaySize,
-        );
+      faceapi.matchDimensions(canvasRef.current, displaySize);
+      const resizedDetections = faceapi.resizeResults(detections, displaySize);
 
-        const ctx = canvasRef.current.getContext("2d");
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-        faceapi.draw.drawDetections(canvasRef.current, resizedDetections);
+      const ctx = canvasRef.current.getContext("2d");
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      faceapi.draw.drawDetections(canvasRef.current, resizedDetections);
 
-        if (detections.length > 0) {
-          if (!faceMatcherRef.current) {
-            setEstadoChecador("Rostro detectado (Sin base de datos)");
-            return;
-          }
-
-          const rostroEnCamara = detections[0].descriptor;
-          const mejorCoincidencia =
-            faceMatcherRef.current.findBestMatch(rostroEnCamara);
-
-          if (mejorCoincidencia.label !== "unknown") {
-            procesandoRef.current = true;
-            ctx.clearRect(
-              0,
-              0,
-              canvasRef.current.width,
-              canvasRef.current.height,
-            );
-            procesarAsistencia(mejorCoincidencia.label);
-          } else {
-            setEstadoChecador("Rostro desconocido. Acércate más.");
-          }
-        } else {
-          setEstadoChecador("Cámara lista. Esperando rostro...");
+      if (detections.length > 0) {
+        if (!faceMatcherRef.current) {
+          setEstadoChecador("Rostro detectado (Sin base de datos)");
+          return;
         }
+
+        const rostroEnCamara = detections[0].descriptor;
+        const mejorCoincidencia =
+          faceMatcherRef.current.findBestMatch(rostroEnCamara);
+
+        if (mejorCoincidencia.label !== "unknown") {
+          ctx.clearRect(
+            0,
+            0,
+            canvasRef.current.width,
+            canvasRef.current.height,
+          );
+          procesarAsistencia(mejorCoincidencia.label);
+        } else {
+          setEstadoChecador("Rostro desconocido. Acércate más.");
+        }
+      } else {
+        setEstadoChecador("Cámara lista. Esperando rostro...");
       }
-    }, 500);
-  };
+    }
+  }, 500);
+};
 
 return (
   <div className="min-h-screen bg-slate-900 flex flex-col font-sans relative overflow-hidden">

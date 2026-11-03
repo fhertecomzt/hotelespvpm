@@ -122,8 +122,9 @@ try {
         $coords_actuales = "{$latitud_movil}, {$longitud_movil}";
 
         // ============================================================================
-        // 1. CANDADO PREVENTIVO: Cierre automático de turnos huérfanos de días anteriores
-        // (Debe ir aquí arriba para limpiar el camino antes de buscar registros abiertos)
+        // 1. CANDADO PREVENTIVO: Cierre automático de turnos huérfanos reales
+        // Solo cierra si el turno tiene más de 14 horas de antigüedad 
+        // para proteger los turnos nocturnos que cruzan la medianoche.
         // ============================================================================
         $stmtCierreHuérfano = $pdo->prepare("
             UPDATE asistencias 
@@ -132,10 +133,10 @@ try {
                 minutos_trabajados = 0 
             WHERE usuario_id = ? 
               AND hora_salida IS NULL 
-              AND fecha < ? 
+              AND TIMESTAMPDIFF(HOUR, CONCAT(fecha, ' ', hora_entrada), NOW()) > 14
               AND estatus_entrada NOT IN ('Falta', 'Día de Descanso', 'Incapacidad', 'Permiso')
         ");
-        $stmtCierreHuérfano->execute([$usuario_id, $fecha_hoy]);
+        $stmtCierreHuérfano->execute([$usuario_id]);
         // ============================================================================
 
         // ============================================================================

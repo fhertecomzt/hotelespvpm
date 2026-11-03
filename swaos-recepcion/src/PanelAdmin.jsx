@@ -52,6 +52,10 @@ export default function PanelAdmin({ usuarioActual }) {
   const [zonas, setZonas] = useState([]);
   const [habitaciones, setHabitaciones] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroHotel, setFiltroHotel] = useState("");
+  const [filtroRol, setFiltroRol] = useState("");
+  const [filtroEstatus, setFiltroEstatus] = useState("");
 
   // ESTADOS DE PAGINACIÓN
   const [paginaActual, setPaginaActual] = useState(1);
@@ -70,6 +74,11 @@ export default function PanelAdmin({ usuarioActual }) {
   const [modalTipo, setModalTipo] = useState(false);
   const [modalZona, setModalZona] = useState(false);
   const [modalHab, setModalHab] = useState(false);
+
+  // Si el usuario escribe o cambia un filtro, regresamos a la página 1 para evitar tablas en blanco
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [busqueda, filtroHotel, filtroRol, filtroEstatus]);
 
   // DÍAS DE DESCANSO
   const DIAS_SEMANA = [
@@ -260,8 +269,9 @@ export default function PanelAdmin({ usuarioActual }) {
     );
   };
 
-  const cargarTodo = () => {
-    setCargando(true);
+  const cargarTodo = (mostrarSpinner = true) => {
+    if (mostrarSpinner) setCargando(true);
+
     const urlUser = `${API_URL}/obtener_usuarios.php?hotel_id=0&rol_solicitante=${usuarioActual?.rol || ""}`;
     const urlInv = `${API_URL}/gestion_inventario.php?accion=leer_todo&hotel_id=0`;
 
@@ -454,6 +464,67 @@ export default function PanelAdmin({ usuarioActual }) {
         alertaToast("error", "Error de red al conectar con el servidor");
       });
   };
+
+  // ==========================================
+  // MOTOR DE FILTRADO LOCAL (OMNI-SEARCH)
+  // ==========================================
+  // ==========================================
+  // MOTOR DE FILTRADO LOCAL (ÚNICO Y CORREGIDO)
+  // ==========================================
+  const usuariosFiltradas = usuarios.filter((u) => {
+    // 1. Jerarquía previa (silos departamentales)
+    if (!esSuperusuario && !esAdmin) {
+      if (
+        usuarioActual?.rol === "Ama de Llaves" &&
+        u.rol !== "Ama de Llaves" &&
+        u.rol !== "Camarista"
+      )
+        return false;
+      if (usuarioActual?.rol === "Recepcion" && u.rol !== "Recepcion")
+        return false;
+      if (usuarioActual?.rol === "Mantenimiento" && u.rol !== "Mantenimiento")
+        return false;
+      if (
+        u.id !== usuarioActual?.id &&
+        !["Ama de Llaves", "Recepcion", "Mantenimiento"].includes(
+          usuarioActual?.rol,
+        )
+      )
+        return false;
+    }
+    if (esAdmin && u.rol === "Superusuario") return false;
+
+    const nombreCompleto =
+      `${u.nombre} ${u.primer_apellido} ${u.segundo_apellido || ""}`.toLowerCase();
+    const terminoBusqueda = busqueda.toLowerCase();
+
+    // Coincidencia de Buscador (Nombre o Correo)
+    const coincideBusqueda =
+      nombreCompleto.includes(terminoBusqueda) ||
+      (u.email || "").toLowerCase().includes(terminoBusqueda);
+
+    // Coincidencia de Rol
+    const coincideRol = filtroRol === "" || u.rol === filtroRol;
+
+    // Coincidencia de Estatus
+    const coincideEstatus =
+      filtroEstatus === "" || (u.estatus || "Activo") === filtroEstatus;
+
+    // Coincidencia de Hotel
+    const coincideHotel =
+      filtroHotel === "" || Number(u.hotel_base_id) === Number(filtroHotel);
+
+    return coincideBusqueda && coincideRol && coincideEstatus && coincideHotel;
+  });
+
+  if (cargando) {
+    return (
+      <div className="text-center py-10 text-slate-400 font-bold animate-pulse">
+        Cargando listado de usuarios...
+      </div>
+    );
+  }
+
   // ==========================================
   // FUNCIONES PARA HOTELES (MODO SAAS CON ALIAS)
   // ==========================================
@@ -864,6 +935,68 @@ export default function PanelAdmin({ usuarioActual }) {
                   <span>➕</span> Nuevo Empleado
                 </button>
               </div>
+              {/* ========================================== */}
+              {/* BARRA DE FILTROS ESTILO INCIDENCIAS */}
+              {/* ========================================== */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+                {/* 1. Selector de Hotel (Visible para Superusuario y Administrador) */}
+                {["Superusuario", "Administrador"].includes(
+                  usuarioActual?.rol,
+                ) && (
+                  <select
+                    value={filtroHotel}
+                    onChange={(e) => setFiltroHotel(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold focus:ring-2 focus:ring-indigo-400"
+                  >
+                    <option value="">🏢 Todos (Hoteles)</option>
+                    {hoteles.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        🏨 {h.alias || h.nombre}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* 2. Buscador Inteligente Omni-Search */}
+                <div className="flex-1 min-w-[200px] relative">
+                  <span className="absolute left-3 top-3 text-slate-400">
+                    🔍
+                  </span>
+                  <input
+                    type="search"
+                    placeholder="Buscar empleado..."
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl pl-9 pr-4 py-2.5 text-xs font-bold focus:ring-2 focus:ring-indigo-400"
+                  />
+                </div>
+
+                {/* 3. Selector de Roles (Corregido con filtroRol) */}
+                <select
+                  value={filtroRol}
+                  onChange={(e) => setFiltroRol(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold focus:ring-2 focus:ring-indigo-400"
+                >
+                  <option value="">⏳ Todos (Roles)</option>
+                  <option value="Administrador">Administrador</option>
+                  <option value="Camarista">Camarista</option>
+                  <option value="Ama de Llaves">Ama de Llaves</option>
+                  <option value="Recepcion">Recepcion</option>
+                  <option value="Mantenimiento">Mantenimiento</option>
+                  <option value="Almacenista">Almacenista</option>
+                </select>
+
+                {/* 4. Selector de Estatus (Corregido con filtroEstatus) */}
+                <select
+                  value={filtroEstatus}
+                  onChange={(e) => setFiltroEstatus(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold focus:ring-2 focus:ring-indigo-400"
+                >
+                  <option value="">⏳ Todos (Estatus)</option>
+                  <option value="Activo">✅ Activo</option>
+                  <option value="Inactivo">❌ Inactivo</option>
+                </select>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -874,86 +1007,107 @@ export default function PanelAdmin({ usuarioActual }) {
                       <th className="p-4">Rol / Depto</th>
                       <th className="p-4">Estatus</th>
                       <th className="p-4">Hotel</th>
-                      <th className="p-4 text-right">Acciones</th>
+                      <th className="p-4 text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    {getItemsPaginados(usuariosFiltrados).map((u) => {
-                      const colorBadge =
-                        ROLES_COLORES[u.rol] ||
-                        "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200";
-                      const nombreComp =
-                        `${u.nombre} ${u.primer_apellido} ${u.segundo_apellido || ""}`.trim();
-                      const esTu = u.id === usuarioActual?.id;
-                      const esActivo = u.estatus !== "Inactivo";
-                      return (
-                        <tr
-                          key={u.id}
-                          className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${!esActivo ? "opacity-50 grayscale-[50%]" : ""}`}
+                    {usuariosFiltradas.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan="7"
+                          className="text-center py-12 text-slate-400 dark:text-slate-500"
                         >
-                          <td className="p-4 font-mono text-xs text-slate-400">
-                            #{u.id}
-                          </td>
-                          <td className="p-4 font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                            <span>{nombreComp}</span>{" "}
-                            {esTu && (
-                              <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">
-                                Tú
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-4 text-slate-600 dark:text-slate-300 font-normal">
-                            {u.email}
-                          </td>
-                          <td className="p-4">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-xs font-bold border ${colorBadge}`}
-                            >
-                              {u.rol}
-                            </span>
-                          </td>
-                          {/* COLUMNA ESTATUS */}
-                          <td className="p-4">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase border whitespace-nowrap ${esActivo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"}`}
-                            >
-                              ● {u.estatus || "Activo"}
-                            </span>
-                          </td>
-                          {/* COLUMNA HOTEL */}
-                          <td className="p-4">
-                            <span className="inline-flex items-center whitespace-nowrap bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-bold px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800/40 text-xs">
-                              {getHotelLabel(u.hotel_base_id)}
-                            </span>
-                          </td>
-                          {/* COLUMNA ACCIONES */}
-                          <td className="p-4">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => abrirModalEditarEmp(u)}
-                                className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 whitespace-nowrap"
-                              >
-                                ✏️ Editar
-                              </button>
-                              {!esTu && u.id !== 1 && (
-                                <button
-                                  onClick={() =>
-                                    handleEliminarItem(
-                                      u.id,
-                                      "usuarios",
-                                      nombreComp,
-                                    )
-                                  }
-                                  className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 whitespace-nowrap"
-                                >
-                                  🗑️ Borrar
-                                </button>
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <span className="text-3xl">🔍</span>
+                            <p className="font-bold text-base">
+                              No se encontraron empleados con los filtros
+                              actualizados
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              Intenta buscando con otro nombre o limpiando los
+                              selectores.
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      getItemsPaginados(usuariosFiltradas).map((u) => {
+                        const colorBadge =
+                          ROLES_COLORES[u.rol] ||
+                          "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200";
+                        const nombreComp =
+                          `${u.nombre} ${u.primer_apellido} ${u.segundo_apellido || ""}`.trim();
+                        const esTu = u.id === usuarioActual?.id;
+                        const esActivo = u.estatus !== "Inactivo";
+                        return (
+                          <tr
+                            key={u.id}
+                            className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${!esActivo ? "opacity-50 grayscale-[50%]" : ""}`}
+                          >
+                            <td className="p-4 font-mono text-xs text-slate-400">
+                              #{u.id}
+                            </td>
+                            <td className="p-4 font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                              <span>{nombreComp}</span>{" "}
+                              {esTu && (
+                                <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">
+                                  Tú
+                                </span>
                               )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            </td>
+                            <td className="p-4 text-slate-600 dark:text-slate-300 font-normal">
+                              {u.email}
+                            </td>
+                            <td className="p-4">
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-xs font-bold border ${colorBadge}`}
+                              >
+                                {u.rol}
+                              </span>
+                            </td>
+                            {/* COLUMNA ESTATUS */}
+                            <td className="p-4">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase border whitespace-nowrap ${esActivo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"}`}
+                              >
+                                ● {u.estatus || "Activo"}
+                              </span>
+                            </td>
+                            {/* COLUMNA HOTEL */}
+                            <td className="p-4">
+                              <span className="inline-flex items-center whitespace-nowrap bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-bold px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800/40 text-xs">
+                                {getHotelLabel(u.hotel_base_id)}
+                              </span>
+                            </td>
+                            {/* COLUMNA ACCIONES */}
+                            <td className="p-4">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => abrirModalEditarEmp(u)}
+                                  className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 whitespace-nowrap"
+                                >
+                                  ✏️ Editar
+                                </button>
+                                {!esTu && u.id !== 1 && (
+                                  <button
+                                    onClick={() =>
+                                      handleEliminarItem(
+                                        u.id,
+                                        "usuarios",
+                                        nombreComp,
+                                      )
+                                    }
+                                    className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 whitespace-nowrap"
+                                  >
+                                    🗑️ Borrar
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
                 <RenderPaginacion lista={usuariosFiltrados} />
